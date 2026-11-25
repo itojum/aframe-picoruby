@@ -49,8 +49,11 @@ module AFrame
         return if @handlers_installed
 
         @handlers_installed = true
+        # Release every shape first, then run the hooks, so a hook that
+        # awaits or raises does not keep the other shapes grabbed.
         JS.global.addEventListener("mouseup") do |event|
-          items.each { |item| item.release(event) }
+          released = items.select { |item| item.release(event) }
+          released.each { |item| item.run_release_hooks }
         end
         Scene.on_tick { update }
       end
@@ -82,11 +85,30 @@ module AFrame
       @grabbed = false
       @grab_distance = 0
       @holder = nil
+      @grab_hooks = []
+      @release_hooks = []
       entity.js.addEventListener("mousedown") { |event| grab(event) }
     end
 
     def grabbed?
       @grabbed
+    end
+
+    # Called with the Entity after it is grabbed.
+    def on_grab(&block)
+      @grab_hooks << block
+      self
+    end
+
+    # Called with the Entity after it is released. Its position is then
+    # in world coordinates (the shape is a child of a-scene again).
+    def on_release(&block)
+      @release_hooks << block
+      self
+    end
+
+    def run_release_hooks
+      run_hooks(@release_hooks)
     end
 
     # Grabbed with the mouse (moved by the frame loop).
@@ -114,10 +136,13 @@ module AFrame
       @grabbed = true
       @entity.color = GRAB_COLOR
       @entity.pause_animation
+      run_hooks(@grab_hooks)
     end
 
     # A mouse grab ends on any mouseup. A controller grab ends only on
     # the mouseup of that controller, so the other hand keeps its shape.
+    # Returns true when this call released the shape. The release hooks
+    # are run by the mouseup handler (run_release_hooks), not here.
     def release(event = nil)
       return unless @grabbed
 
@@ -130,6 +155,7 @@ module AFrame
       @grabbed = false
       @entity.color = @original_color
       @entity.play_animation
+      true
     end
 
     # Moves the shape to origin + direction * grab_distance.
@@ -139,6 +165,17 @@ module AFrame
     end
 
     private
+
+    # A hook that raises is reported and does not stop the others.
+    def run_hooks(hooks)
+      hooks.each do |hook|
+        begin
+          hook.call(@entity)
+        rescue => e
+          puts "AFrame::Grabbable hook error: #{e.message}"
+        end
+      end
+    end
 
     # detail is a JS object for cursor events and an Integer for native
     # mouse events (do not call .class on a JS object).
