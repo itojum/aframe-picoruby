@@ -2,16 +2,24 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>aframe_picoruby Examples</title>
   <style>
-    body { font-family: monospace; background: #1a1a1a; color: #eee; padding: 2rem; }
+    body { font-family: monospace; background: #1a1a1a; color: #eee; padding: 2rem; line-height: 1.6; }
     a { color: #7af; }
+    code { color: #fc6; }
   </style>
 </head>
 <body>
   <h1>aframe_picoruby Examples</h1>
+  <p>A-Frame のシーンを PicoRuby.wasm の Ruby で操作するサンプルです。</p>
   <ul>
-    <li><a href="grab/index.html">Grab Demo</a> — マウスで図形を掴んで動かす。</li>
+    <li>
+      <a href="grab/index.html">Grab Demo</a> — マウスで図形を掴んで動かす。
+      掴んでいる間は白くなり、立方体の回転が止まり、視点は固定されます。
+      （<a href="grab/main.rb">main.rb</a>）
+    </li>
   </ul>
+  <p>各サンプルは <code>ruby script/server</code> で起動したサーバーから開いてください。</p>
 </body>
 </html>
