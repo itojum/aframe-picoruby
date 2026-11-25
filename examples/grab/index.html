@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>A-Frame 掴めるデモシーン（PicoRuby 版）</title>
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
 </head>
 <body>
   <a-scene background="color: #1a1a2e">
@@ -13,6 +13,9 @@
       <a-camera look-controls wasd-controls>
         <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
       </a-camera>
+      <!-- VR コントローラー（トリガーで掴む）。頭と同じリグに入れ、マウス用の raycaster より後ろに置く -->
+      <a-entity laser-controls="hand: left" raycaster="objects: .my-grabbable"></a-entity>
+      <a-entity laser-controls="hand: right" raycaster="objects: .my-grabbable"></a-entity>
     </a-entity>
 
     <!-- ライティング -->

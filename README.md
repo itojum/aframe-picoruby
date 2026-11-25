@@ -10,7 +10,7 @@
 （`<script type="text/ruby" src="...">` で `lib/aframe.rb` を直接読み込むだけでは動きません）。
 
 ```html
-<script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+<script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
 
 <a-scene>
   <a-entity position="0 1.6 4">
@@ -39,6 +39,33 @@ AFrame::Grabbable.attach_all(".my-grabbable")  # 図形をマウスで掴める�
 AFrame::Scene.run                              # フレームループ（戻ってこない）
 ```
 
+VR コントローラーでも掴みたいときは、カメラと同じリグの中で、`a-camera` より後ろにコントローラーを置きます。リグに入れるのは頭と手の位置をそろえるため、後ろに置くのは `raycaster` の既定値 `"[raycaster]"` が最初に見つかった要素（マウス用のカーソル）を指すためです。
+
+```html
+<a-entity position="0 1.6 4">
+  <a-camera look-controls wasd-controls>
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
+  </a-camera>
+  <a-entity laser-controls="hand: left" raycaster="objects: .my-grabbable"></a-entity>
+  <a-entity laser-controls="hand: right" raycaster="objects: .my-grabbable"></a-entity>
+</a-entity>
+```
+
+マウスで掴んだ図形は毎フレーム ray を追い、コントローラーで掴んだ図形はコントローラーの子になって手と一緒に動きます。
+
+### 掴んだとき・離したときの処理
+
+```ruby
+AFrame::Grabbable.attach_all(".my-grabbable").each do |item|
+  item.on_grab    { |entity| puts "grab" }
+  item.on_release { |entity| p entity.position }
+end
+```
+
+- `entity.position` は親から見た位置です。コントローラーで離した図形はシーンの直下に戻り、マウスで掴む図形はもともとシーンの直下に置く前提なので、どちらもワールド座標になります（マウスで掴む図形を、回転や移動のある親の中に置いた場合はワールド座標になりません）
+- 中で `await` を使えます。待っている間も、ほかの図形を掴む・離す処理や毎フレームの処理は止まりません
+- 同時に離れた図形がいくつあっても、先に全部を離してからフックを呼びます。フックが例外を出してもコンソールに出すだけで、ほかのフックは呼ばれます
+
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。
 
 ## API
@@ -50,14 +77,15 @@ AFrame::Scene.run                              # フレームループ（戻っ�
 | `AFrame::Scene.on_tick { }` | 毎フレーム呼ぶ処理を登録する |
 | `AFrame::Scene.run` | `requestAnimationFrame` を待ちながら `on_tick` の処理を呼び続ける（戻ってこない） |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js` |
-| `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]")` | 要素をマウスで掴んで動かせるようにする。掴んでいる間は白くなり、`animation` が止まる |
+| `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]")` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は白くなり、`animation` が止まる |
+| `Grabbable#on_grab { \|entity\| }` / `#on_release { \|entity\| }` | 掴んだとき・離したときに呼ぶ処理を登録する（複数登録できる）。`attach_all` が返す配列の要素に対して呼ぶ |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | raycaster が図形と交差しているときに押されたマウスでは `look-controls` を止める |
 
 ## 使っているもの
 
 | もの | 版 |
 |---|---|
-| A-Frame | 1.6.0 |
+| A-Frame | 1.8.0 |
 | importmap-picoruby | 0 系 |
 | PicoRuby.wasm (`@picoruby/wasm-wasi`) | `4.0.6-head.20261119` |
 

@@ -1,6 +1,9 @@
 module AFrame
-  # Shapes that can be grabbed with the mouse (my-grabbable in 1.html).
-  # A grabbed shape follows the mouse ray at the distance it was grabbed.
+  # Shapes that can be grabbed (my-grabbable in 1.html).
+  # - Mouse (cursor with rayOrigin: mouse): the shape follows the mouse ray
+  #   at the distance it was grabbed, updated every frame.
+  # - VR controller (laser-controls etc.): the shape is re-parented to the
+  #   controller with Object3D#attach, so it moves with the hand by itself.
   class Grabbable
     GRAB_COLOR = "#ffffff"
 
@@ -46,14 +49,17 @@ module AFrame
         return if @handlers_installed
 
         @handlers_installed = true
-        JS.global.addEventListener("mouseup") do |_event|
-          items.each { |item| item.release }
+        # Release every shape first, then run the hooks, so a hook that
+        # awaits or raises does not keep the other shapes grabbed.
+        JS.global.addEventListener("mouseup") do |event|
+          released = items.select { |item| item.release(event) }
+          released.each { |item| item.run_release_hooks }
         end
         Scene.on_tick { update }
       end
 
       def update
-        held = items.select { |item| item.grabbed? }
+        held = items.select { |item| item.following_ray? }
         return if held.empty?
 
         r = ray
@@ -78,30 +84,81 @@ module AFrame
       @original_color = entity.color
       @grabbed = false
       @grab_distance = 0
-      entity.js.addEventListener("mousedown") { |_event| grab }
+      @holder = nil
+      @grab_hooks = []
+      @release_hooks = []
+      entity.js.addEventListener("mousedown") { |event| grab(event) }
     end
 
     def grabbed?
       @grabbed
     end
 
-    # Ignored until the ray is ready, so the distance is always measured.
-    def grab
-      distance = distance_from_ray_origin
-      return if distance.nil?
+    # Called with the Entity after it is grabbed.
+    def on_grab(&block)
+      @grab_hooks << block
+      self
+    end
 
-      @grab_distance = distance
+    # Called with the Entity after it is released. Entity#position is
+    # relative to the parent: a controller grab puts the shape back under
+    # a-scene, and a mouse grab keeps its parent, so it is in world
+    # coordinates when the shape is directly under a-scene (which mouse
+    # grabbing already assumes).
+    def on_release(&block)
+      @release_hooks << block
+      self
+    end
+
+    def run_release_hooks
+      run_hooks(@release_hooks)
+    end
+
+    # Grabbed with the mouse (moved by the frame loop).
+    def following_ray?
+      @grabbed && @holder.nil?
+    end
+
+    # With a VR controller, the shape is attached to the controller.
+    # With the mouse, it is ignored until the ray is ready, so the
+    # distance is always measured.
+    def grab(event = nil)
+      return if @grabbed
+
+      cursor = cursor_of(event)
+      if controller?(cursor)
+        cursor[:object3D].attach(@entity.js[:object3D])
+        @holder = cursor
+      else
+        distance = distance_from_ray_origin
+        return if distance.nil?
+
+        @grab_distance = distance
+        @holder = nil
+      end
       @grabbed = true
       @entity.color = GRAB_COLOR
       @entity.pause_animation
+      run_hooks(@grab_hooks)
     end
 
-    def release
+    # A mouse grab ends on any mouseup. A controller grab ends only on
+    # the mouseup of that controller, so the other hand keeps its shape.
+    # Returns true when this call released the shape. The release hooks
+    # are run by the mouseup handler (run_release_hooks), not here.
+    def release(event = nil)
       return unless @grabbed
 
+      unless @holder.nil?
+        return unless released_by_holder?(event)
+
+        Scene.element[:object3D].attach(@entity.js[:object3D])
+        @holder = nil
+      end
       @grabbed = false
       @entity.color = @original_color
       @entity.play_animation
+      true
     end
 
     # Moves the shape to origin + direction * grab_distance.
@@ -111,6 +168,42 @@ module AFrame
     end
 
     private
+
+    # A hook that raises is reported and does not stop the others.
+    def run_hooks(hooks)
+      hooks.each do |hook|
+        begin
+          hook.call(@entity)
+        rescue => e
+          puts "AFrame::Grabbable hook error: #{e.message}"
+        end
+      end
+    end
+
+    # detail is a JS object for cursor events and an Integer for native
+    # mouse events (do not call .class on a JS object).
+    def cursor_of(event)
+      return nil if event.nil?
+
+      detail = event[:detail]
+      detail.is_a?(JS::Object) ? detail[:cursorEl] : nil
+    end
+
+    def controller?(cursor)
+      return false if cursor.nil?
+
+      component = cursor[:components][:cursor]
+      !component.nil? && component[:data][:rayOrigin] != "mouse"
+    end
+
+    # The cursor emits mouseup on itself (target) and on the intersected
+    # shape (detail.cursorEl).
+    def released_by_holder?(event)
+      return false if event.nil?
+
+      same = JS.global[:Object]
+      same.is(@holder, event[:target]) || same.is(@holder, cursor_of(event))
+    end
 
     def distance_from_ray_origin
       r = self.class.ray
