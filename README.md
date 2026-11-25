@@ -66,6 +66,18 @@ end
 - 中で `await` を使えます。待っている間も、ほかの図形を掴む・離す処理や毎フレームの処理は止まりません
 - 同時に離れた図形がいくつあっても、先に全部を離してからフックを呼びます。フックが例外を出してもコンソールに出すだけで、ほかのフックは呼ばれます
 
+### Ruby から要素を作る
+
+```ruby
+group = AFrame::Entity.create("a-entity", position: [0, 0, -3])
+AFrame::Entity.create("a-box", parent: group, position: [0, 1, 0], color: "tomato",
+                      animation: { property: "rotation", to: "0 360 0", loop: true, dur: 2000 })
+```
+
+- 値は A-Frame の属性の文字列に直して渡します：配列は `"0 1 0"`、Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
+- Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）
+- 作った直後から使えます。A-Frame の読み込みが終わる（`hasLoaded` が true になる）のは、イベントループの次の番です
+
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。
 
 ## API
@@ -77,6 +89,8 @@ end
 | `AFrame::Scene.on_tick { }` | 毎フレーム呼ぶ処理を登録する |
 | `AFrame::Scene.run` | `requestAnimationFrame` を待ちながら `on_tick` の処理を呼び続ける（戻ってこない） |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js` |
+| `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity か JS の要素。省略時は `a-scene`）の子にして、Entity で返す |
+| `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
 | `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]")` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は白くなり、`animation` が止まる |
 | `Grabbable#on_grab { \|entity\| }` / `#on_release { \|entity\| }` | 掴んだとき・離したときに呼ぶ処理を登録する（複数登録できる）。`attach_all` が返す配列の要素に対して呼ぶ |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | raycaster が図形と交差しているときに押されたマウスでは `look-controls` を止める |
