@@ -100,8 +100,11 @@ module AFrame
       self
     end
 
-    # Called with the Entity after it is released. Its position is then
-    # in world coordinates (the shape is a child of a-scene again).
+    # Called with the Entity after it is released. Entity#position is
+    # relative to the parent: a controller grab puts the shape back under
+    # a-scene, and a mouse grab keeps its parent, so it is in world
+    # coordinates when the shape is directly under a-scene (which mouse
+    # grabbing already assumes).
     def on_release(&block)
       @release_hooks << block
       self
