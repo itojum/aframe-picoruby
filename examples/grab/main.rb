@@ -1,4 +1,4 @@
 require "aframe"
 
-puts AFrame::VERSION
-JS.document.querySelector("a-text").setAttribute("value", "AFrame #{AFrame::VERSION}")
+AFrame::Scene.ready
+puts JS.document.querySelectorAll(".my-grabbable").to_a.size
