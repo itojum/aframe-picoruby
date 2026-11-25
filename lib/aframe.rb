@@ -4,3 +4,4 @@
 require "js"
 require "aframe/version"
 require "aframe/scene"
+require "aframe/entity"
