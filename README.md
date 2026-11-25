@@ -39,6 +39,20 @@ AFrame::Grabbable.attach_all(".my-grabbable")  # 図形をマウスで掴める�
 AFrame::Scene.run                              # フレームループ（戻ってこない）
 ```
 
+VR コントローラーでも掴みたいときは、カメラと同じリグの中で、`a-camera` より後ろにコントローラーを置きます。リグに入れるのは頭と手の位置をそろえるため、後ろに置くのは `raycaster` の既定値 `"[raycaster]"` が最初に見つかった要素（マウス用のカーソル）を指すためです。
+
+```html
+<a-entity position="0 1.6 4">
+  <a-camera look-controls wasd-controls>
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
+  </a-camera>
+  <a-entity laser-controls="hand: left" raycaster="objects: .my-grabbable"></a-entity>
+  <a-entity laser-controls="hand: right" raycaster="objects: .my-grabbable"></a-entity>
+</a-entity>
+```
+
+マウスで掴んだ図形は毎フレーム ray を追い、コントローラーで掴んだ図形はコントローラーの子になって手と一緒に動きます。
+
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。
 
 ## API
@@ -50,7 +64,7 @@ AFrame::Scene.run                              # フレームループ（戻っ�
 | `AFrame::Scene.on_tick { }` | 毎フレーム呼ぶ処理を登録する |
 | `AFrame::Scene.run` | `requestAnimationFrame` を待ちながら `on_tick` の処理を呼び続ける（戻ってこない） |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js` |
-| `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]")` | 要素をマウスで掴んで動かせるようにする。掴んでいる間は白くなり、`animation` が止まる |
+| `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]")` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は白くなり、`animation` が止まる |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | raycaster が図形と交差しているときに押されたマウスでは `look-controls` を止める |
 
 ## 使っているもの
