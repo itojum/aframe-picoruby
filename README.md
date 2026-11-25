@@ -10,7 +10,7 @@
 （`<script type="text/ruby" src="...">` で `lib/aframe.rb` を直接読み込むだけでは動きません）。
 
 ```html
-<script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+<script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
 
 <a-scene>
   <a-entity position="0 1.6 4">
@@ -57,7 +57,7 @@ AFrame::Scene.run                              # フレームループ（戻っ�
 
 | もの | 版 |
 |---|---|
-| A-Frame | 1.6.0 |
+| A-Frame | 1.8.0 |
 | importmap-picoruby | 0 系 |
 | PicoRuby.wasm (`@picoruby/wasm-wasi`) | `4.0.6-head.20261119` |
 
