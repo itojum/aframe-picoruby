@@ -13,6 +13,9 @@
       <a-camera look-controls wasd-controls>
         <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
       </a-camera>
+      <!-- VR コントローラー（トリガーで掴む）。頭と同じリグに入れ、マウス用の raycaster より後ろに置く -->
+      <a-entity laser-controls="hand: left" raycaster="objects: .my-grabbable"></a-entity>
+      <a-entity laser-controls="hand: right" raycaster="objects: .my-grabbable"></a-entity>
     </a-entity>
 
     <!-- ライティング -->
