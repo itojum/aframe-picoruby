@@ -13,7 +13,7 @@
 <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
 
 <a-scene>
-  <a-entity position="0 1.6 4">
+  <a-entity position="0 0 4">
     <a-camera look-controls wasd-controls>
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
     </a-camera>
@@ -42,7 +42,7 @@ AFrame::Scene.run                              # フレームループ（戻っ�
 VR コントローラーでも掴みたいときは、カメラと同じリグの中で、`a-camera` より後ろにコントローラーを置きます。リグに入れるのは頭と手の位置をそろえるため、後ろに置くのは `raycaster` の既定値 `"[raycaster]"` が最初に見つかった要素（マウス用のカーソル）を指すためです。
 
 ```html
-<a-entity position="0 1.6 4">
+<a-entity position="0 0 4">
   <a-camera look-controls wasd-controls>
     <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
   </a-camera>
