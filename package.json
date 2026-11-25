@@ -1,0 +1,19 @@
+{
+  "name": "aframe_picoruby",
+  "version": "0.0.1",
+  "description": "A-Frame helpers for PicoRuby.wasm",
+  "main": "lib/aframe.rb",
+  "files": [
+    "lib/"
+  ],
+  "scripts": {
+    "serve": "ruby script/server"
+  },
+  "keywords": [
+    "picoruby",
+    "picoruby-wasm",
+    "aframe",
+    "ruby"
+  ],
+  "license": "MIT"
+}

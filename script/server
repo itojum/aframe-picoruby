@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# Dev server: serves examples/ at / and lib/ at /lib/.
+# Nothing is built; every file is served as it is on disk.
+# PicoRuby.wasm, A-Frame and importmap-picoruby are loaded from CDNs by the pages.
+require 'bundler/inline'
+
+gemfile do
+  source 'https://rubygems.org'
+  gem 'webrick'
+end
+
+root = File.expand_path('..', __dir__)
+
+class NoCacheFileHandler < WEBrick::HTTPServlet::FileHandler
+  def do_GET(req, res) = super.tap { res['Cache-Control'] = 'no-store' }
+  def do_HEAD(req, res) = super.tap { res['Cache-Control'] = 'no-store' }
+end
+
+server = WEBrick::HTTPServer.new(Port: 3000)
+server.config[:MimeTypes]['rb'] = 'text/plain; charset=utf-8'
+
+server.mount('/',    NoCacheFileHandler, File.join(root, 'examples'))
+server.mount('/lib', NoCacheFileHandler, File.join(root, 'lib'))
+
+puts "http://localhost:3000"
+trap('INT') { server.shutdown }
+server.start

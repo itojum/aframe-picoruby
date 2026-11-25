@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>A-Frame 掴めるデモシーン（PicoRuby 版）</title>
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+</head>
+<body>
+  <a-scene background="color: #1a1a2e">
+
+    <!-- カメラとマウス操作用レイキャスター -->
+    <a-entity position="0 1.6 4">
+      <a-camera look-controls wasd-controls>
+        <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
+      </a-camera>
+    </a-entity>
+
+    <!-- ライティング -->
+    <a-light type="ambient" color="#666"></a-light>
+    <a-light type="directional" position="-2 4 3" intensity="0.8" castShadow="true"></a-light>
+
+    <!-- 掴める立方体 -->
+    <a-box
+      class="my-grabbable"
+      position="-1.5 1.5 -2"
+      rotation="0 45 0"
+      color="#4CC3D9"
+      shadow
+      animation="property: rotation; to: 0 405 0; loop: true; dur: 6000; easing: linear">
+    </a-box>
+
+    <!-- 掴める球体 -->
+    <a-sphere
+      class="my-grabbable"
+      position="0 1.8 -3"
+      radius="0.8"
+      color="#EF2D5E"
+      shadow>
+    </a-sphere>
+
+    <!-- 掴める円柱 -->
+    <a-cylinder
+      class="my-grabbable"
+      position="1.5 1.25 -2"
+      radius="0.5"
+      height="1.5"
+      color="#FFC65D"
+      shadow>
+    </a-cylinder>
+
+    <!-- 3Dテキスト -->
+    <a-text
+      value="Drag the shapes with your mouse!"
+      position="0 3.2 -3"
+      align="center"
+      color="#ffffff"
+      width="6">
+    </a-text>
+
+    <!-- 床 -->
+    <a-plane
+      position="0 0 -2"
+      rotation="-90 0 0"
+      width="12"
+      height="12"
+      color="#16213e"
+      shadow>
+    </a-plane>
+
+  </a-scene>
+
+  <!-- 手順 1 で追加する:
+  <script type="text/ruby-importmap">
+  { "imports": { "aframe": "/lib/aframe.rb" } }
+  </script>
+  <script type="text/ruby" src="https://cdn.jsdelivr.net/npm/importmap-picoruby@0/loader.rb"></script>
+  <script type="text/ruby-app" src="main.rb"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@4.0.6-head.20261119/dist/init.iife.js"></script>
+  -->
+</body>
+</html>
