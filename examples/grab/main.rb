@@ -1,4 +1,13 @@
 require "aframe"
 
 AFrame::Scene.ready
-puts JS.document.querySelectorAll(".my-grabbable").to_a.size
+
+# Step 3 check: AFrame::Entity
+box, sphere, cylinder = AFrame::Entity.all(".my-grabbable")
+puts sphere.color
+p sphere.position
+
+sphere.color = "#00ff00"
+sphere.set_position(0, 2.5, -3)
+box.pause_animation
+cylinder.pause_animation
