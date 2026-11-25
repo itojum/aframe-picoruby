@@ -75,7 +75,7 @@ end
 | `AFrame::Scene.ready(selector = "a-scene")` | シーンを探し、読み込みが終わるまで待つ。見つからなければ例外 |
 | `AFrame::Scene.element` | `ready` で見つけた `a-scene` 要素 |
 | `AFrame::Scene.on_tick { }` | 毎フレーム呼ぶ処理を登録する |
-| `AFrame::Scene.run` | `requestAnimationFrame` を待ちながら `on_tick` の処理を呼び続ける（戻ってこない） |
+| `AFrame::Scene.run` | A-Frame の描画ループに合わせて `on_tick` の処理を呼び続ける（戻ってこない）。VR 中も止まらない。シーンを `pause` している間は呼ばれない |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js` |
 | `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]")` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は白くなり、`animation` が止まる |
 | `Grabbable#on_grab { \|entity\| }` / `#on_release { \|entity\| }` | 掴んだとき・離したときに呼ぶ処理を登録する（複数登録できる）。`attach_all` が返す配列の要素に対して呼ぶ |
