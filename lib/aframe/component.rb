@@ -1,0 +1,192 @@
+module AFrame
+  # An A-Frame component written in Ruby (AFRAME.registerComponent).
+  #
+  #   class SpinBox < AFrame::Component
+  #     register "spin-box"
+  #     schema speed: { type: :number, default: 30 }
+  #
+  #     def tick(time, delta)
+  #       el.object3D.rotation.y += deg_to_rad(data.speed * delta / 1000)
+  #     end
+  #   end
+  #
+  #   <a-box spin-box="speed: 90"></a-box>
+  #
+  # A-Frame reads the schema and calls init / update / remove / play /
+  # pause on a JS component whose methods call Ruby synchronously. tick is
+  # called from Scene.on_tick for every playing instance, so there is one
+  # call from JS to Ruby per frame however many instances there are.
+  # Hooks run inside A-Frame, so they must not await.
+  class Component
+    class << self
+      # Registers the component under name. The JS side is registered in a
+      # microtask (after the class body, so schema can come before or after
+      # register) and picks up elements that already have the attribute.
+      def register(name)
+        raise "#{self} is already registered as #{@component_name}" if @component_name
+        raise "#{name} is already registered" if Component.classes.key?(name)
+
+        @component_name = name
+        Component.classes[name] = self
+        Component.install
+        JS.global.__aframe_defineComponent(name) do |event, id, arg|
+          Component.dispatch(self, event, id, arg)
+        end
+        self
+      end
+
+      def component_name
+        @component_name
+      end
+
+      # Sets the schema (A-Frame's schema with Symbol or String keys and
+      # values) or returns it.
+      #   schema speed: { type: :number, default: 30 }  # multiple properties
+      #   schema type: :number, default: 30             # single property
+      def schema(definition = nil)
+        @schema = definition unless definition.nil?
+        @schema || {}
+      end
+
+      # Called from JS (synchronously) for each lifecycle event.
+      def dispatch(klass, event, id, arg)
+        if event == "schema"
+          return JS::Bridge.to_js(js_value(klass.schema))
+        end
+
+        if event == "init"
+          instance = klass.new(arg)
+          instances[id] = instance
+          safely(instance, :init)
+          return nil
+        end
+
+        instance = instances[id]
+        return nil if instance.nil?
+
+        if event == "update"
+          safely(instance, :update, arg)
+        elsif event == "play"
+          instance.playing = true
+        elsif event == "pause"
+          instance.playing = false
+        elsif event == "remove"
+          instance.playing = false
+          instances.delete(id)
+          safely(instance, :remove)
+        end
+        nil
+      end
+
+      def classes
+        @classes ||= {}
+      end
+
+      def instances
+        @instances ||= {}
+      end
+
+      # Defines the JS helper and hooks tick into the frame loop, once.
+      def install
+        return if @installed
+
+        @installed = true
+        JS.eval(DEFINE_SOURCE)
+        Scene.on_tick { |time, delta| tick_all(time, delta) }
+        Scene.start
+      end
+
+      private
+
+      def tick_all(time, delta)
+        # A copy, as a tick may remove an element (and its instance).
+        instances.values.each do |instance|
+          next unless instance.playing && instance.respond_to?(:tick)
+
+          safely(instance, :tick, time, delta)
+        end
+      end
+
+      # A hook that raises is reported and does not stop the others.
+      def safely(instance, hook, *args)
+        instance.__send__(hook, *args)
+      rescue => e
+        puts "AFrame::Component #{instance.class.component_name} #{hook} error: #{e.message}"
+      end
+
+      # Symbols become strings, so the bridge passes them to JS.
+      def js_value(value)
+        if value.is_a?(Hash)
+          result = {}
+          value.each { |k, v| result[k.to_s] = js_value(v) }
+          result
+        elsif value.is_a?(Array)
+          value.map { |v| js_value(v) }
+        elsif value.is_a?(Symbol)
+          value.to_s
+        else
+          value
+        end
+      end
+    end
+
+    DEFINE_SOURCE = <<~JS
+      window.__aframe_defineComponent = (name, call) => {
+        queueMicrotask(() => {
+          let nextId = 0;
+          AFRAME.registerComponent(name, {
+            schema: call("schema", 0, null),
+            init() { this.__rubyId = ++nextId; call("init", this.__rubyId, this); },
+            update(oldData) { call("update", this.__rubyId, oldData); },
+            play() { call("play", this.__rubyId, null); },
+            pause() { call("pause", this.__rubyId, null); },
+            remove() { call("remove", this.__rubyId, null); }
+          });
+          // Elements that loaded before the component existed.
+          document.querySelectorAll("[" + name + "]").forEach((el) => {
+            if (el.hasLoaded && el.components && !el.components[name]) {
+              el.setAttribute(name, el.getAttribute(name) || "");
+            }
+          });
+        });
+      };
+    JS
+
+    attr_reader :component
+    attr_accessor :playing
+
+    # component is the JS component (this in AFRAME.registerComponent).
+    # Override init, not initialize.
+    def initialize(component)
+      @component = component
+      @el = Entity.new(component[:el])
+      @playing = false
+    end
+
+    # The element as an Entity (el.object3D etc. go to JS).
+    def el
+      @el
+    end
+
+    # The parsed attribute: a JS object for a multi-property schema
+    # (data.speed), or the value itself for a single-property one.
+    def data
+      @component[:data]
+    end
+
+    # Hooks to override (tick(time, delta) is called only when defined).
+    def init; end
+
+    def update(old_data); end
+
+    def remove; end
+
+    def deg_to_rad(degrees)
+      degrees * Math::PI / 180
+    end
+
+    def rad_to_deg(radians)
+      radians * 180 / Math::PI
+    end
+  end
+end
