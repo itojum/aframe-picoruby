@@ -10,7 +10,9 @@ module AFrame
     class << self
       # All shapes share one raycaster: a different selector on a later
       # call raises, and shared state is replaced only after the lookup.
-      def attach_all(selector, raycaster: "[raycaster]")
+      # grab_color: color while grabbed (nil keeps the color).
+      # pause_animation: pause the animation component while grabbed.
+      def attach_all(selector, raycaster: "[raycaster]", grab_color: GRAB_COLOR, pause_animation: true)
         if @raycaster_selector && @raycaster_selector != raycaster
           raise "Grabbable is already attached with #{@raycaster_selector}"
         end
@@ -22,7 +24,9 @@ module AFrame
         @raycaster = element
 
         @items ||= []
-        added = Entity.all(selector).map { |entity| new(entity) }
+        added = Entity.all(selector).map do |entity|
+          new(entity, grab_color: grab_color, pause_animation: pause_animation)
+        end
         @items.concat(added)
         install_handlers
         added
@@ -30,6 +34,11 @@ module AFrame
 
       def items
         @items || []
+      end
+
+      # Called by Grabbable#detach.
+      def remove(item)
+        @items&.delete(item)
       end
 
       # THREE.Ray of the raycaster (origin is the camera position
@@ -79,19 +88,52 @@ module AFrame
 
     attr_reader :entity, :grab_distance
 
-    def initialize(entity)
+    def initialize(entity, grab_color: GRAB_COLOR, pause_animation: true)
       @entity = entity
-      @original_color = entity.color
+      @grab_color = grab_color
+      @pause_animation = pause_animation
+      @original_color = nil
+      @enabled = true
       @grabbed = false
       @grab_distance = 0
       @holder = nil
       @grab_hooks = []
       @release_hooks = []
-      entity.js.addEventListener("mousedown") { |event| grab(event) }
+      @listener_id = entity.js.addEventListener("mousedown") { |event| grab(event) }
     end
 
     def grabbed?
       @grabbed
+    end
+
+    def enabled?
+      @enabled
+    end
+
+    # false stops grabbing, and releases the shape (running the release
+    # hooks) when it is held.
+    def enabled=(value)
+      @enabled = value ? true : false
+      force_release unless @enabled
+    end
+
+    # Distance from the ray origin while grabbed with the mouse (e.g. to
+    # move the shape closer with the wheel). Negative values become 0.
+    def grab_distance=(value)
+      @grab_distance = value < 0 ? 0 : value
+    end
+
+    # Stops grabbing for good: releases the shape when it is held,
+    # removes the mousedown listener and drops it from Grabbable.items.
+    def detach
+      force_release
+      @enabled = false
+      unless @listener_id.nil?
+        JS::Object.removeEventListener(@listener_id)
+        @listener_id = nil
+      end
+      self.class.remove(self)
+      self
     end
 
     # Called with the Entity after it is grabbed.
@@ -123,7 +165,7 @@ module AFrame
     # With the mouse, it is ignored until the ray is ready, so the
     # distance is always measured.
     def grab(event = nil)
-      return if @grabbed
+      return if @grabbed || !@enabled
 
       cursor = cursor_of(event)
       if controller?(cursor)
@@ -137,8 +179,11 @@ module AFrame
         @holder = nil
       end
       @grabbed = true
-      @entity.color = GRAB_COLOR
-      @entity.pause_animation
+      unless @grab_color.nil?
+        @original_color = @entity.color
+        @entity.color = @grab_color
+      end
+      @entity.pause_animation if @pause_animation
       run_hooks(@grab_hooks)
     end
 
@@ -149,15 +194,9 @@ module AFrame
     def release(event = nil)
       return unless @grabbed
 
-      unless @holder.nil?
-        return unless released_by_holder?(event)
+      return if !@holder.nil? && !released_by_holder?(event)
 
-        Scene.element[:object3D].attach(@entity.js[:object3D])
-        @holder = nil
-      end
-      @grabbed = false
-      @entity.color = @original_color
-      @entity.play_animation
+      drop
       true
     end
 
@@ -168,6 +207,29 @@ module AFrame
     end
 
     private
+
+    # Puts the shape back: under a-scene for a controller grab, and the
+    # color and animation as they were before the grab.
+    def drop
+      unless @holder.nil?
+        Scene.element[:object3D].attach(@entity.js[:object3D])
+        @holder = nil
+      end
+      @grabbed = false
+      unless @grab_color.nil?
+        @entity.color = @original_color
+        @original_color = nil
+      end
+      @entity.play_animation if @pause_animation
+    end
+
+    # Releases without a mouseup (enabled = false, detach).
+    def force_release
+      return unless @grabbed
+
+      drop
+      run_release_hooks
+    end
 
     # A hook that raises is reported and does not stop the others.
     def run_hooks(hooks)
