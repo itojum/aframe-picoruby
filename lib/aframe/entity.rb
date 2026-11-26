@@ -5,10 +5,78 @@ module AFrame
       JS.document.querySelectorAll(selector).to_a.map { |js| new(js) }
     end
 
+    # Creates <tag> with the attributes, appends it to parent (an Entity or
+    # a JS element; a-scene when omitted) and returns it as an Entity.
+    #
+    #   AFrame::Entity.create("a-box", position: [0, 1, -3], color: "tomato")
+    #
+    # The element is usable right away; A-Frame finishes loading it (sets
+    # hasLoaded) on a later turn of the event loop.
+    def self.create(tag, parent: nil, **attributes)
+      entity = new(JS.document.createElement(tag))
+      attributes.each { |name, value| entity.set_attribute(name, value) }
+      parent_js = parent.is_a?(Entity) ? parent.js : parent
+      parent_js ||= Scene.element || JS.document.querySelector("a-scene")
+      raise "a-scene not found" if parent_js.nil?
+
+      parent_js.appendChild(entity.js)
+      entity
+    end
+
+    COORDINATE_KEYS = ["x", "y", "z", "w"]
+
+    # A-Frame attribute string for a Ruby value:
+    #   [0, 1, -3]                          => "0 1 -3"
+    #   { x: 0, y: 1, z: -3 }               => "0 1 -3"  (vec2/3/4 order)
+    #   { property: "rotation", dur: 500 } => "property: rotation; dur: 500"
+    # Strings are kept as they are; anything else uses to_s.
+    def self.attribute_value(value)
+      if value.is_a?(String)
+        value
+      elsif value.is_a?(Array)
+        value.map { |v| v.to_s }.join(" ")
+      elsif value.is_a?(Hash) && coordinates?(value)
+        present = COORDINATE_KEYS.select { |k| value.key?(k.to_sym) || value.key?(k) }
+        present.map { |k| (value.key?(k.to_sym) ? value[k.to_sym] : value[k]).to_s }.join(" ")
+      elsif value.is_a?(Hash)
+        value.map { |k, v| "#{k}: #{attribute_value(v)}" }.join("; ")
+      else
+        value.to_s
+      end
+    end
+
+    COORDINATE_KEY_SETS = [%w[x y], %w[x y z], %w[w x y z]]
+
+    # { x:, y: } / { x:, y:, z: } / { x:, y:, z:, w: } (Symbol or String keys).
+    def self.coordinates?(hash)
+      COORDINATE_KEY_SETS.include?(hash.keys.map { |k| k.to_s }.sort)
+    end
+
+    def self.attribute_name(symbol)
+      symbol.to_s.split("__").map { |part| part.tr("_", "-") }.join("__")
+    end
+
     attr_reader :js
 
     def initialize(js)
       @js = js
+    end
+
+    # Symbol names use - for a single _ (look_controls: => "look-controls");
+    # __ is kept, as A-Frame uses it for multiple instances of a component
+    # (animation__spin: => "animation__spin").
+    # setAttribute only takes two strings, so values go through
+    # Entity.attribute_value.
+    def set_attribute(name, value)
+      name = name.is_a?(Symbol) ? Entity.attribute_name(name) : name.to_s
+      @js.setAttribute(name, Entity.attribute_value(value))
+      self
+    end
+
+    # Moves child (an Entity or a JS element) under this entity.
+    def append(child)
+      @js.appendChild(child.is_a?(Entity) ? child.js : child)
+      child
     end
 
     def color
