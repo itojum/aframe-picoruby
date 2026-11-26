@@ -74,8 +74,8 @@ AFrame::Entity.create("a-box", parent: group, position: [0, 1, 0], color: "tomat
                       animation: { property: "rotation", to: "0 360 0", loop: true, dur: 2000 })
 ```
 
-- 値は A-Frame の属性の文字列に直して渡します：配列は `"0 1 0"`、Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
-- Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）
+- 値は A-Frame の属性の文字列に直して渡します：配列と座標の Hash（`{ x:, y:, z: }`）は `"0 1 0"`、そのほかの Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
+- Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じ部品を複数付けるときの `__` はそのまま残します（`animation__spin:`）
 - 作った直後から使えます。A-Frame の読み込みが終わる（`hasLoaded` が true になる）のは、イベントループの次の番です
 
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。

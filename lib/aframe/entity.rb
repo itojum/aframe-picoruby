@@ -23,8 +23,11 @@ module AFrame
       entity
     end
 
+    COORDINATE_KEYS = ["x", "y", "z", "w"]
+
     # A-Frame attribute string for a Ruby value:
     #   [0, 1, -3]                          => "0 1 -3"
+    #   { x: 0, y: 1, z: -3 }               => "0 1 -3"  (vec2/3/4 order)
     #   { property: "rotation", dur: 500 } => "property: rotation; dur: 500"
     # Strings are kept as they are; anything else uses to_s.
     def self.attribute_value(value)
@@ -32,11 +35,25 @@ module AFrame
         value
       elsif value.is_a?(Array)
         value.map { |v| v.to_s }.join(" ")
+      elsif value.is_a?(Hash) && coordinates?(value)
+        present = COORDINATE_KEYS.select { |k| value.key?(k.to_sym) || value.key?(k) }
+        present.map { |k| (value.key?(k.to_sym) ? value[k.to_sym] : value[k]).to_s }.join(" ")
       elsif value.is_a?(Hash)
         value.map { |k, v| "#{k}: #{attribute_value(v)}" }.join("; ")
       else
         value.to_s
       end
+    end
+
+    COORDINATE_KEY_SETS = [%w[x y], %w[x y z], %w[w x y z]]
+
+    # { x:, y: } / { x:, y:, z: } / { x:, y:, z:, w: } (Symbol or String keys).
+    def self.coordinates?(hash)
+      COORDINATE_KEY_SETS.include?(hash.keys.map { |k| k.to_s }.sort)
+    end
+
+    def self.attribute_name(symbol)
+      symbol.to_s.split("__").map { |part| part.tr("_", "-") }.join("__")
     end
 
     attr_reader :js
@@ -45,11 +62,13 @@ module AFrame
       @js = js
     end
 
-    # Symbol names use - for _ (look_controls: => "look-controls").
+    # Symbol names use - for a single _ (look_controls: => "look-controls");
+    # __ is kept, as A-Frame uses it for multiple instances of a component
+    # (animation__spin: => "animation__spin").
     # setAttribute only takes two strings, so values go through
     # Entity.attribute_value.
     def set_attribute(name, value)
-      name = name.is_a?(Symbol) ? name.to_s.tr("_", "-") : name.to_s
+      name = name.is_a?(Symbol) ? Entity.attribute_name(name) : name.to_s
       @js.setAttribute(name, Entity.attribute_value(value))
       self
     end
