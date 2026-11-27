@@ -12,7 +12,7 @@
 ```html
 <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
 
-<a-scene>
+<a-scene camera-lock>
   <a-entity position="0 0 4">
     <a-camera look-controls wasd-controls>
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
@@ -34,11 +34,10 @@
 require "aframe"
 
 AFrame::Scene.ready          # a-scene の読み込みを待つ
-AFrame::CameraLock.install   # 図形を掴んでいる間は視点を固定する
 AFrame::Scene.run            # フレームループ（戻ってこない）
 ```
 
-`grab-target` 属性を付けた図形は、`require "aframe"` するだけでマウスで掴めるようになります（`AFrame::Grabbable` が `grab-target` という部品を登録します。A-Frame にはハンドトラッキング用の `grabbable` という部品がもともとあるので、名前を分けています）。`raycaster` の `objects` には、掴む図形を選ぶセレクター（ここでは `.my-grabbable`）を書きます。
+`grab-target` 属性を付けた図形は、`require "aframe"` するだけでマウスで掴めるようになります（`AFrame::Grabbable` が `grab-target` という部品を登録します。A-Frame にはハンドトラッキング用の `grabbable` という部品がもともとあるので、名前を分けています）。`raycaster` の `objects` には、掴む図形を選ぶセレクター（ここでは `.my-grabbable`）を書きます。`<a-scene camera-lock>` は、図形を掴んでいる間に視点が回らないようにする System です（`camera: a-camera; raycaster: [raycaster]` で対象を変えられます）。掴める（`enabled` な）`grab-target` の上で押したときだけ視点を止めます。
 
 VR コントローラーでも掴みたいときは、カメラと同じリグの中で、`a-camera` より後ろにコントローラーを置きます。リグに入れるのは頭と手の位置をそろえるため、後ろに置くのは `raycaster` の既定値 `"[raycaster]"` が最初に見つかった要素（マウス用のカーソル）を指すためです。
 
@@ -219,7 +218,8 @@ end
 | `X.instances`（X は Component のサブクラス） | その部品の生きているインスタンスの配列（作った順） |
 | `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
 | `AFrame::Grabbable.instances` / `#grab_distance` / `#grab_distance=` / `#following_ray?` / `#grabbed?` | `grab-target` の部品の一覧と、マウスで掴んでいる図形の ray の起点からの距離（負の値は 0 になる） |
-| `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | raycaster が図形と交差しているときに押されたマウスでは `look-controls` を止める |
+| `camera-lock` 属性（`AFrame::CameraLock`、a-scene に付ける System） | 掴める `grab-target` の上でマウスを押したときに `look-controls` を止め、離したときに戻す。設定は `camera`（既定 `a-camera`）と `raycaster`（既定 `[raycaster]`） |
+| `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | 前の書き方との互換のために残している。`a-scene` に `camera-lock` 属性を付けるだけ |
 
 ## 使っているもの
 
@@ -249,7 +249,7 @@ lib/
     ├── component.rb     … Ruby で書く A-Frame の部品
     ├── system.rb        … Ruby で書く A-Frame の System
     ├── builder.rb       … AFrame.scene（ブロックで要素を作る）
-    ├── camera_lock.rb   … 掴んでいる間の視点固定
+    ├── camera_lock.rb   … 掴んでいる間の視点固定（camera-lock の System）
     └── grabbable.rb     … 図形を掴んで動かす部品（grab-target）
 examples/
 ├── index.html
