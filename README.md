@@ -84,10 +84,15 @@ item.detach                 # 掴めなくし、イベントリスナーを外�
 ### Ruby から要素を作る
 
 ```ruby
-group = AFrame::Entity.create("a-entity", position: [0, 0, -3])
+group = AFrame::Entity.create("a-entity", id: "group", position: [0, 0, -3])
 AFrame::Entity.create("a-box", parent: group, position: [0, 1, 0], color: "tomato",
                       animation: { property: "rotation", to: "0 360 0", loop: true, dur: 2000 })
+AFrame::Entity.create("a-sphere", parent: "#group", position: [1, 1, 0], radius: 0.3)
+
+group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなければ nil
 ```
+
+- `parent:` には Entity、JS の要素、セレクターの文字列を渡せます。セレクターが見つからなければ例外になり、要素は作りません
 
 - 値は A-Frame の属性の文字列に直して渡します：配列と座標の Hash（`{ x:, y:, z: }`）は `"0 1 0"`、そのほかの Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じ部品を複数付けるときの `__` はそのまま残します（`animation__spin:`）
@@ -145,7 +150,8 @@ end
 | `AFrame::Scene.run` | A-Frame の描画ループに合わせて `on_tick` の処理を呼び続ける（戻ってこない）。VR 中も止まらない。シーンを `pause` している間は呼ばれない |
 | `AFrame::Scene.start` | `run` と同じく `on_tick` の処理を呼び始めるが、すぐに戻ってくる |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.rotation.y`） |
-| `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity か JS の要素。省略時は `a-scene`）の子にして、Entity で返す |
+| `AFrame::Entity.find(selector)` | 最初に見つかった要素を Entity で返す。見つからなければ `nil`（`querySelector` と同じ） |
+| `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `deg_to_rad` / `rad_to_deg` を使う |
 | `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]", grab_color: "#ffffff", pause_animation: true)` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は `grab_color` になり（`nil` なら変えない）、`pause_animation` が true なら `animation` が止まる |
