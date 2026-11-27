@@ -21,22 +21,22 @@ module AFrame
            enabled: true,               # false: cannot be grabbed
            raycaster: "[raycaster]"     # the mouse cursor's raycaster
 
-    class << self
-      # Every live grab-target component, in the order they were created.
-      def instances
-        @items ||= []
+    # The grab-target system (same name, so A-Frame pairs it with the
+    # component): owns the one window mouseup listener for every
+    # grab-target, so the component keeps no state of its own at class
+    # level. Grabbable.instances is Component.instances.
+    class Releaser < System
+      register "grab-target"
+
+      def init
+        @listener_id = JS.global.addEventListener("mouseup") { |event| release_all(event) }
       end
 
-      # One window mouseup for all instances: release every shape first,
-      # then emit release, so a listener cannot keep another one held.
-      def install_mouseup
-        return if @mouseup_installed
-
-        @mouseup_installed = true
-        JS.global.addEventListener("mouseup") do |event|
-          released = instances.select { |item| item.release(event) }
-          released.each { |item| item.emit_release }
-        end
+      # Releases every shape first, then emits release, so a listener
+      # cannot keep another one held.
+      def release_all(event)
+        released = Grabbable.instances.select { |item| item.release(event) }
+        released.each { |item| item.emit_release }
       end
     end
 
@@ -50,8 +50,6 @@ module AFrame
       @paused = false     # whether the grab paused the animation
       @original_color = nil
       @listener_id = el.js.addEventListener("mousedown") { |event| grab(event) }
-      Grabbable.instances << self
-      Grabbable.install_mouseup
     end
 
     # enabled: false releases a shape that is held. grab_color and
@@ -73,7 +71,6 @@ module AFrame
     # removeAttribute("grab-target") or removing the element: releases the
     # shape and stops listening.
     def remove
-      Grabbable.instances.delete(self)
       unless @listener_id.nil?
         JS::Object.removeEventListener(@listener_id)
         @listener_id = nil
