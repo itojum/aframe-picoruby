@@ -18,7 +18,7 @@
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .my-grabbable"></a-entity>
     </a-camera>
   </a-entity>
-  <a-box class="my-grabbable" position="0 1.5 -2" color="#4CC3D9"></a-box>
+  <a-box class="my-grabbable" grab-target position="0 1.5 -2" color="#4CC3D9"></a-box>
 </a-scene>
 
 <script type="text/ruby-importmap">
@@ -33,11 +33,12 @@
 # main.rb
 require "aframe"
 
-AFrame::Scene.ready                            # a-scene の読み込みを待つ
-AFrame::CameraLock.install                     # 図形を掴んでいる間は視点を固定する
-AFrame::Grabbable.attach_all(".my-grabbable")  # 図形をマウスで掴めるようにする
-AFrame::Scene.run                              # フレームループ（戻ってこない）
+AFrame::Scene.ready          # a-scene の読み込みを待つ
+AFrame::CameraLock.install   # 図形を掴んでいる間は視点を固定する
+AFrame::Scene.run            # フレームループ（戻ってこない）
 ```
+
+`grab-target` 属性を付けた図形は、`require "aframe"` するだけでマウスで掴めるようになります（`AFrame::Grabbable` が `grab-target` という部品を登録します。A-Frame にはハンドトラッキング用の `grabbable` という部品がもともとあるので、名前を分けています）。`raycaster` の `objects` には、掴む図形を選ぶセレクター（ここでは `.my-grabbable`）を書きます。
 
 VR コントローラーでも掴みたいときは、カメラと同じリグの中で、`a-camera` より後ろにコントローラーを置きます。リグに入れるのは頭と手の位置をそろえるため、後ろに置くのは `raycaster` の既定値 `"[raycaster]"` が最初に見つかった要素（マウス用のカーソル）を指すためです。
 
@@ -55,31 +56,45 @@ VR コントローラーでも掴みたいときは、カメラと同じリグ�
 
 ### 掴んだとき・離したときの処理
 
+掴んだ図形は `grab`、離した図形は `release` のイベントを出します（`detail.cursorEl` は掴んだカーソル）。掴んでいる間は、要素が `grabbed` の状態になります（`el.is("grabbed")`）。
+
 ```ruby
-AFrame::Grabbable.attach_all(".my-grabbable").each do |item|
-  item.on_grab    { |entity| puts "grab" }
-  item.on_release { |entity| puts "#{entity.position.x}, #{entity.position.y}, #{entity.position.z}" }
+AFrame::Entity.all("[grab-target]").each do |shape|
+  shape.addEventListener("grab") { |event| puts "grab" }
+  shape.addEventListener("release") { |event| puts "#{shape.position.x}, #{shape.position.y}, #{shape.position.z}" }
 end
 ```
 
-- `entity.position` は親から見た位置です。コントローラーで離した図形はシーンの直下に戻り、マウスで掴む図形はもともとシーンの直下に置く前提なので、どちらもワールド座標になります（マウスで掴む図形を、回転や移動のある親の中に置いた場合はワールド座標になりません）
-- 中で `await` を使えます。待っている間も、ほかの図形を掴む・離す処理や毎フレームの処理は止まりません
-- 同時に離れた図形がいくつあっても、先に全部を離してからフックを呼びます。フックが例外を出してもコンソールに出すだけで、ほかのフックは呼ばれます
+- `position` は親から見た位置です。コントローラーで離した図形はシーンの直下に戻り、マウスで掴む図形はもともとシーンの直下に置く前提なので、どちらもワールド座標になります（マウスで掴む図形を、回転や移動のある親の中に置いた場合はワールド座標になりません）
+- 同時に離れた図形がいくつあっても、先に全部を離してから `release` を出します
 
 ### 掴み方を変える
 
-```ruby
-items = AFrame::Grabbable.attach_all(".my-grabbable",
-  grab_color: "#ffff00",    # 掴んでいる間の色。nil なら色を変えない（既定は "#ffffff"）
-  pause_animation: false)   # 掴んでいる間も animation を止めない（既定は true）
+設定は `grab-target` 属性に書きます（属性を書き換えれば、途中でも変わります）。
 
-item = items.first
-item.enabled = false        # 掴めなくする。掴んでいる最中なら離す（on_release も呼ぶ）
-item.grab_distance += 0.5   # マウスで掴んでいる最中に、ray の起点からの距離を変える
-item.detach                 # 掴めなくし、イベントリスナーを外し、Grabbable.items から取り除く（元に戻せない）
+```html
+<a-box grab-target="grab_color: #ffff00; pause_animation: false"></a-box>
 ```
 
-`examples/grab/` では、マウスで掴んでいる間にホイールで図形を近づけたり遠ざけたりできます。
+```ruby
+AFrame::Entity.create("a-box", grab_target: { grab_color: "none" })
+```
+
+| 設定 | 既定 | 内容 |
+|---|---|---|
+| `grab_color` | `#ffffff` | 掴んでいる間の色。`none` なら色を変えない |
+| `pause_animation` | `true` | 掴んでいる間、`animation` を止める |
+| `enabled` | `true` | `false` で掴めなくする。掴んでいる最中なら離す（`release` も出す） |
+| `raycaster` | `[raycaster]` | マウスで掴んだ図形が追う ray の、`raycaster` を持つ要素のセレクター |
+
+- 掴めなくするのをやめるには `removeAttribute("grab-target")` で外します（掴んでいる最中なら離します）
+- マウスで掴んでいる最中は、`grab_distance` で ray の起点からの距離を変えられます。`examples/grab/` では、ホイールで図形を近づけたり遠ざけたりしています
+
+```ruby
+AFrame::Grabbable.instances.each do |item|          # grab-target の部品の全部
+  item.grab_distance += 0.5 if item.following_ray?  # マウスで掴んでいる最中のもの
+end
+```
 
 ### Ruby から要素を作る
 
@@ -180,11 +195,8 @@ end
 | `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `deg_to_rad` / `rad_to_deg` を使う |
 | `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` を使う |
 | `X.instances`（X は Component のサブクラス） | その部品の生きているインスタンスの配列（作った順） |
-| `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]", grab_color: "#ffffff", pause_animation: true)` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は `grab_color` になり（`nil` なら変えない）、`pause_animation` が true なら `animation` が止まる |
-| `Grabbable#enabled=` / `#enabled?` | 掴める・掴めないを切り替える。掴んでいる最中に false にすると離し、`on_release` を呼ぶ |
-| `Grabbable#grab_distance` / `#grab_distance=` | マウスで掴んでいる図形の、ray の起点からの距離（負の値は 0 になる） |
-| `Grabbable#detach` | 掴めなくし、`mousedown` のリスナーを外し、`Grabbable.items` から取り除く（掴んでいる最中なら離す）。後から `enabled = true` にしても掴めない |
-| `Grabbable#on_grab { \|entity\| }` / `#on_release { \|entity\| }` | 掴んだとき・離したときに呼ぶ処理を登録する（複数登録できる）。`attach_all` が返す配列の要素に対して呼ぶ |
+| `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
+| `AFrame::Grabbable.instances` / `#grab_distance` / `#grab_distance=` / `#following_ray?` / `#grabbed?` | `grab-target` の部品の一覧と、マウスで掴んでいる図形の ray の起点からの距離（負の値は 0 になる） |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | raycaster が図形と交差しているときに押されたマウスでは `look-controls` を止める |
 
 ## 使っているもの
@@ -215,7 +227,7 @@ lib/
     ├── component.rb     … Ruby で書く A-Frame の部品
     ├── system.rb        … Ruby で書く A-Frame の System
     ├── camera_lock.rb   … 掴んでいる間の視点固定
-    └── grabbable.rb     … 図形を掴んで動かす
+    └── grabbable.rb     … 図形を掴んで動かす部品（grab-target）
 examples/
 ├── index.html
 ├── grab/                … マウスで図形を掴んで動かすデモ

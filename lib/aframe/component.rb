@@ -27,6 +27,9 @@ module AFrame
       def register(name, multiple: false)
         raise "#{self} is already registered as #{@component_name}" if @component_name
         raise "#{name} is already registered" if Component.classes.key?(name)
+        if JS.eval("AFRAME.components[#{name.inspect}] ? true : false")
+          raise "#{name} is already registered in A-Frame"
+        end
 
         @component_name = name
         Component.classes[name] = self

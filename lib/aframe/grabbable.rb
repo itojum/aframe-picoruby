@@ -1,121 +1,88 @@
 module AFrame
-  # Shapes that can be grabbed (my-grabbable in 1.html).
+  # The grab-target component: an element with it can be grabbed and
+  # moved. (A-Frame already has a component named grabbable, for hand
+  # tracking, so this one is grab-target.)
+  #
+  #   <a-box grab-target="grab_color: #ffff00"></a-box>
+  #   AFrame::Entity.create("a-box", grab_target: { grab_color: "#ffff00" })
+  #
   # - Mouse (cursor with rayOrigin: mouse): the shape follows the mouse ray
-  #   at the distance it was grabbed, updated every frame.
+  #   at the distance it was grabbed, updated every frame (tick).
   # - VR controller (laser-controls etc.): the shape is re-parented to the
   #   controller with Object3D#attach, so it moves with the hand by itself.
-  class Grabbable
-    GRAB_COLOR = "#ffffff"
+  #
+  # The element emits grab and release (detail.cursorEl is the cursor
+  # that grabbed it) and has the grabbed state while it is held
+  # (el.is("grabbed")). data holds only the settings.
+  class Grabbable < Component
+    register "grab-target"
+    schema grab_color: "#ffffff",       # color while grabbed ("none" keeps it)
+           pause_animation: true,       # pause the animation component
+           enabled: true,               # false: cannot be grabbed
+           raycaster: "[raycaster]"     # the mouse cursor's raycaster
 
     class << self
-      # All shapes share one raycaster: a different selector on a later
-      # call raises, and shared state is replaced only after the lookup.
-      # grab_color: color while grabbed (nil keeps the color).
-      # pause_animation: pause the animation component while grabbed.
-      def attach_all(selector, raycaster: "[raycaster]", grab_color: GRAB_COLOR, pause_animation: true)
-        if @raycaster_selector && @raycaster_selector != raycaster
-          raise "Grabbable is already attached with #{@raycaster_selector}"
-        end
-
-        element = JS.document.querySelector(raycaster)
-        raise "#{raycaster} not found" if element.nil?
-
-        @raycaster_selector = raycaster
-        @raycaster = element
-
+      # Every live grab-target component, in the order they were created.
+      def instances
         @items ||= []
-        added = Entity.all(selector).map do |entity|
-          new(entity, grab_color: grab_color, pause_animation: pause_animation)
-        end
-        @items.concat(added)
-        install_handlers
-        added
       end
 
-      def items
-        @items || []
-      end
+      # One window mouseup for all instances: release every shape first,
+      # then emit release, so a listener cannot keep another one held.
+      def install_mouseup
+        return if @mouseup_installed
 
-      # Called by Grabbable#detach.
-      def remove(item)
-        @items&.delete(item)
-      end
-
-      # THREE.Ray of the raycaster (origin is the camera position
-      # with rayOrigin: mouse), or nil before it is ready.
-      def ray
-        component = @raycaster[:components][:raycaster]
-        return nil if component.nil?
-
-        three = component[:raycaster]
-        three.nil? ? nil : three[:ray]
-      end
-
-      private
-
-      # One window mouseup and one tick handler for all instances.
-      def install_handlers
-        return if @handlers_installed
-
-        @handlers_installed = true
-        # Release every shape first, then run the hooks, so a hook that
-        # awaits or raises does not keep the other shapes grabbed.
+        @mouseup_installed = true
         JS.global.addEventListener("mouseup") do |event|
-          released = items.select { |item| item.release(event) }
-          released.each { |item| item.run_release_hooks }
+          released = instances.select { |item| item.release(event) }
+          released.each { |item| item.emit_release }
         end
-        Scene.on_tick { update }
-      end
-
-      def update
-        held = items.select { |item| item.following_ray? }
-        return if held.empty?
-
-        r = ray
-        return if r.nil?
-
-        origin = r[:origin]
-        direction = r[:direction]
-        ox = origin[:x]
-        oy = origin[:y]
-        oz = origin[:z]
-        dx = direction[:x]
-        dy = direction[:y]
-        dz = direction[:z]
-        held.each { |item| item.follow(ox, oy, oz, dx, dy, dz) }
       end
     end
 
-    attr_reader :entity, :grab_distance
+    attr_reader :grab_distance
 
-    def initialize(entity, grab_color: GRAB_COLOR, pause_animation: true)
-      @entity = entity
-      @grab_color = grab_color
-      @pause_animation = pause_animation
-      @original_color = nil
-      @enabled = true
-      @detached = false
+    def init
       @grabbed = false
       @grab_distance = 0
-      @holder = nil
-      @grab_hooks = []
-      @release_hooks = []
-      @listener_id = entity.js.addEventListener("mousedown") { |event| grab(event) }
+      @holder = nil       # the controller holding it (nil for the mouse)
+      @cursor = nil       # the cursor that grabbed it (mouse or controller)
+      @paused = false     # whether the grab paused the animation
+      @original_color = nil
+      @listener_id = el.js.addEventListener("mousedown") { |event| grab(event) }
+      Grabbable.instances << self
+      Grabbable.install_mouseup
+    end
+
+    # enabled: false releases a shape that is held. grab_color and
+    # pause_animation changed while held apply right away.
+    def update(old_data)
+      return release_now unless data.enabled
+      return unless @grabbed
+
+      apply_grab_color
+      if data.pause_animation && !@paused
+        el.pause_animation
+        @paused = true
+      elsif !data.pause_animation && @paused
+        el.play_animation
+        @paused = false
+      end
+    end
+
+    # removeAttribute("grab-target") or removing the element: releases the
+    # shape and stops listening.
+    def remove
+      Grabbable.instances.delete(self)
+      unless @listener_id.nil?
+        JS::Object.removeEventListener(@listener_id)
+        @listener_id = nil
+      end
+      release_now
     end
 
     def grabbed?
       @grabbed
-    end
-
-    def enabled?
-      @enabled
-    end
-
-    # false stops grabbing, and releases the shape (running the release
-    # hooks) when it is held. A detached shape stays disabled.
-    def enabled=(value)
-      @enabled = value && !@detached ? true : false
-      force_release unless @enabled
     end
 
     # Distance from the ray origin while grabbed with the mouse (e.g. to
@@ -124,56 +91,35 @@ module AFrame
       @grab_distance = value < 0 ? 0 : value
     end
 
-    # Stops grabbing for good: releases the shape when it is held,
-    # removes the mousedown listener and drops it from Grabbable.items.
-    # Disabled and removed before the release hooks run, so a hook cannot
-    # grab it again.
-    def detach
-      @detached = true
-      @enabled = false
-      unless @listener_id.nil?
-        JS::Object.removeEventListener(@listener_id)
-        @listener_id = nil
-      end
-      self.class.remove(self)
-      force_release
-      self
-    end
-
-    # Called with the Entity after it is grabbed.
-    def on_grab(&block)
-      @grab_hooks << block
-      self
-    end
-
-    # Called with the Entity after it is released. Entity#position is
-    # relative to the parent: a controller grab puts the shape back under
-    # a-scene, and a mouse grab keeps its parent, so it is in world
-    # coordinates when the shape is directly under a-scene (which mouse
-    # grabbing already assumes).
-    def on_release(&block)
-      @release_hooks << block
-      self
-    end
-
-    def run_release_hooks
-      run_hooks(@release_hooks)
-    end
-
-    # Grabbed with the mouse (moved by the frame loop).
+    # Grabbed with the mouse (moved every frame).
     def following_ray?
       @grabbed && @holder.nil?
+    end
+
+    # Moves a shape held by the mouse to origin + direction * distance.
+    def tick(time, delta)
+      return unless following_ray?
+
+      r = ray
+      return if r.nil?
+
+      origin = r[:origin]
+      direction = r[:direction]
+      d = @grab_distance
+      el.set_position(origin[:x] + direction[:x] * d,
+                      origin[:y] + direction[:y] * d,
+                      origin[:z] + direction[:z] * d)
     end
 
     # With a VR controller, the shape is attached to the controller.
     # With the mouse, it is ignored until the ray is ready, so the
     # distance is always measured.
     def grab(event = nil)
-      return if @grabbed || !@enabled
+      return if @grabbed || !data.enabled
 
       cursor = cursor_of(event)
       if controller?(cursor)
-        cursor[:object3D].attach(@entity.js[:object3D])
+        cursor[:object3D].attach(el.js[:object3D])
         @holder = cursor
       else
         distance = distance_from_ray_origin
@@ -183,67 +129,103 @@ module AFrame
         @holder = nil
       end
       @grabbed = true
-      unless @grab_color.nil?
-        @original_color = @entity.color
-        @entity.color = @grab_color
+      @cursor = cursor
+      apply_grab_color
+      if data.pause_animation
+        el.pause_animation
+        @paused = true
       end
-      @entity.pause_animation if @pause_animation
-      run_hooks(@grab_hooks)
+      el.js.addState("grabbed")
+      el.js.emit("grab", JS::Bridge.to_js({ "cursorEl" => cursor }))
     end
 
     # A mouse grab ends on any mouseup. A controller grab ends only on
     # the mouseup of that controller, so the other hand keeps its shape.
-    # Returns true when this call released the shape. The release hooks
-    # are run by the mouseup handler (run_release_hooks), not here.
+    # Returns true when this call released the shape; release is emitted
+    # by the caller (emit_release).
     def release(event = nil)
-      return unless @grabbed
+      return false unless @grabbed
+      return false if !@holder.nil? && !released_by_holder?(event)
 
-      return if !@holder.nil? && !released_by_holder?(event)
-
+      @released_by = @cursor
       drop
       true
     end
 
-    # Moves the shape to origin + direction * grab_distance.
-    def follow(ox, oy, oz, dx, dy, dz)
-      d = @grab_distance
-      @entity.set_position(ox + dx * d, oy + dy * d, oz + dz * d)
+    def emit_release
+      el.js.emit("release", JS::Bridge.to_js({ "cursorEl" => @released_by }))
+      @released_by = nil
     end
 
     private
+
+    # Sets the grab color, saving the original the first time; "none"
+    # (A-Frame turns an empty value into the default, so "" cannot be
+    # used) puts the original back.
+    def apply_grab_color
+      color = data.grab_color.to_s
+      if color.empty? || color == "none"
+        unless @original_color.nil?
+          el.color = @original_color
+          @original_color = nil
+        end
+      else
+        @original_color = el.color if @original_color.nil?
+        el.color = color
+      end
+    end
+
+    # Releases without a mouseup (enabled: false, remove).
+    def release_now
+      return unless @grabbed
+
+      @released_by = @cursor
+      drop
+      emit_release
+    end
 
     # Puts the shape back: under a-scene for a controller grab, and the
     # color and animation as they were before the grab.
     def drop
       unless @holder.nil?
-        Scene.element[:object3D].attach(@entity.js[:object3D])
+        el.js[:sceneEl][:object3D].attach(el.js[:object3D])
         @holder = nil
       end
       @grabbed = false
-      unless @grab_color.nil?
-        @entity.color = @original_color
+      @cursor = nil
+      unless @original_color.nil?
+        el.color = @original_color
         @original_color = nil
       end
-      @entity.play_animation if @pause_animation
-    end
-
-    # Releases without a mouseup (enabled = false, detach).
-    def force_release
-      return unless @grabbed
-
-      drop
-      run_release_hooks
-    end
-
-    # A hook that raises is reported and does not stop the others.
-    def run_hooks(hooks)
-      hooks.each do |hook|
-        begin
-          hook.call(@entity)
-        rescue => e
-          puts "AFrame::Grabbable hook error: #{e.message}"
-        end
+      if @paused
+        el.play_animation
+        @paused = false
       end
+      el.js.removeState("grabbed")
+    end
+
+    # THREE.Ray of the mouse cursor's raycaster (origin is the camera
+    # position with rayOrigin: mouse), or nil before it is ready.
+    def ray
+      raycaster = raycaster_element
+      return nil if raycaster.nil?
+
+      component = raycaster[:components][:raycaster]
+      return nil if component.nil?
+
+      three = component[:raycaster]
+      three.nil? ? nil : three[:ray]
+    end
+
+    # The raycaster element, looked up once per selector and again when
+    # the selector changes, it leaves the page, or it was not found yet.
+    def raycaster_element
+      selector = data.raycaster
+      if @raycaster_el.nil? || @raycaster_selector != selector || !@raycaster_el[:isConnected]
+        @raycaster_selector = selector
+        @raycaster_el = JS.document.querySelector(selector)
+      end
+      @raycaster_el
     end
 
     # detail is a JS object for cursor events and an Integer for native
@@ -272,11 +254,11 @@ module AFrame
     end
 
     def distance_from_ray_origin
-      r = self.class.ray
+      r = ray
       return nil if r.nil?
 
       origin = r[:origin]
-      pos = @entity.position
+      pos = el.position
       ddx = pos[:x] - origin[:x]
       ddy = pos[:y] - origin[:y]
       ddz = pos[:z] - origin[:z]
