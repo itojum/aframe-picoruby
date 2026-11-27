@@ -51,11 +51,6 @@ module AFrame
       #   schema type: :number, default: 30             # single property
       # A value that is not a Hash is the property's default; A-Frame then
       # picks the type from it (number, boolean, array or string).
-      # Whether schema has been called (with a definition).
-      def schema_written?
-        !@schema.nil?
-      end
-
       def schema(definition = nil)
         @schema = Component.normalize_schema(definition) unless definition.nil?
         @schema || {}
@@ -178,18 +173,8 @@ module AFrame
       // Ids are shared by every Ruby component, as Component.registry is
       // keyed by id alone.
       window.__aframe_componentId = 0;
-      // A registration waits in a microtask (after the class body), unless
-      // __aframe_flushComponent runs it first (Entity#set_attribute needs a
-      // registered component to pass properties as an object).
-      window.__aframe_pendingComponents = {};
-      window.__aframe_flushComponent = (name) => {
-        const run = window.__aframe_pendingComponents[name];
-        if (run) run();
-      };
       window.__aframe_defineComponent = (name, multiple, call) => {
-        const run = () => {
-          if (window.__aframe_pendingComponents[name] !== run) return;
-          delete window.__aframe_pendingComponents[name];
+        queueMicrotask(() => {
           AFRAME.registerComponent(name, {
             schema: call("schema", 0, null),
             multiple: multiple,
@@ -209,9 +194,7 @@ module AFrame
               if (!el.components[attr]) el.setAttribute(attr, el.getAttribute(attr) || "");
             });
           });
-        };
-        window.__aframe_pendingComponents[name] = run;
-        queueMicrotask(run);
+        });
       };
     JS
 
