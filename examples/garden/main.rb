@@ -27,8 +27,10 @@ class Garden < AFrame::System
 
     @elapsed = 0
     # 植えた花の部品が動き出すのは次の番なので、先に1本分あけておく
-    Flower.instances.first.el.js.remove while Flower.instances.size >= data.max
-    plant
+    while !Flower.instances.empty? && Flower.instances.size >= data.max
+      Flower.instances.first.el.js.remove
+    end
+    plant if data.max >= 1
   end
 
   private

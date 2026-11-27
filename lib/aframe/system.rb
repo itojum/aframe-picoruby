@@ -27,6 +27,11 @@ module AFrame
       def register(name)
         raise "#{self} is already registered as #{@system_name}" if @system_name
         raise "#{name} is already registered" if System.classes.key?(name)
+        # picoruby-frame is the frame loop's own system (Scene.start).
+        raise "#{name} is reserved" if name == "picoruby-frame"
+        if JS.eval("AFRAME.systems[#{name.inspect}] ? true : false")
+          raise "#{name} is already registered in A-Frame"
+        end
 
         @system_name = name
         System.classes[name] = self
