@@ -166,9 +166,10 @@ module AFrame
             remove() { call("remove", this.__rubyId, null); }
           });
           // Elements that loaded before the component existed, under name
-          // (or name__id when multiple).
+          // (or name__id when multiple). Only a multiple component needs
+          // to look at every element, as CSS cannot match name__*.
           const matches = (attr) => attr === name || (multiple && attr.startsWith(name + "__"));
-          document.querySelectorAll("*").forEach((el) => {
+          document.querySelectorAll(multiple ? "*" : "[" + name + "]").forEach((el) => {
             if (!el.hasLoaded || !el.components) return;
             Array.from(el.attributes).map((a) => a.name).filter(matches).forEach((attr) => {
               if (!el.components[attr]) el.setAttribute(attr, el.getAttribute(attr) || "");
