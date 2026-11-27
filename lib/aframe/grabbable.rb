@@ -207,7 +207,7 @@ module AFrame
     # THREE.Ray of the mouse cursor's raycaster (origin is the camera
     # position with rayOrigin: mouse), or nil before it is ready.
     def ray
-      raycaster = JS.document.querySelector(data.raycaster)
+      raycaster = raycaster_element
       return nil if raycaster.nil?
 
       component = raycaster[:components][:raycaster]
@@ -215,6 +215,17 @@ module AFrame
 
       three = component[:raycaster]
       three.nil? ? nil : three[:ray]
+    end
+
+    # The raycaster element, looked up once per selector and again when
+    # the selector changes, it leaves the page, or it was not found yet.
+    def raycaster_element
+      selector = data.raycaster
+      if @raycaster_el.nil? || @raycaster_selector != selector || !@raycaster_el[:isConnected]
+        @raycaster_selector = selector
+        @raycaster_el = JS.document.querySelector(selector)
+      end
+      @raycaster_el
     end
 
     # detail is a JS object for cursor events and an Integer for native
