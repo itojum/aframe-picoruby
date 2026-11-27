@@ -95,6 +95,9 @@ AFrame::Grabbable.instances.each do |item|          # grab-target の部品の�
 end
 ```
 
+- 掴んでいる間の色と `animation` は、`grab-target` が要素の `color` と `animation` を直接変えています。別の部品に分けると設定の書き方が変わってしまうので、今はこの形にしています。自分で見た目を変えたいときは `grab_color: none; pause_animation: false` にして、`grab` / `release` イベントか `grabbed` の状態（`el.is("grabbed")`）を使ってください
+- 離すきっかけになる `window` の `mouseup` は、`grab-target` と同じ名前の System が1つだけ聞いていて、そこから全部の `grab-target` を離します
+
 ### Ruby から要素を作る
 
 ```ruby
