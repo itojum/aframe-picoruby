@@ -51,6 +51,11 @@ module AFrame
       #   schema type: :number, default: 30             # single property
       # A value that is not a Hash is the property's default; A-Frame then
       # picks the type from it (number, boolean, array or string).
+      # Whether schema has been called (with a definition).
+      def schema_written?
+        !@schema.nil?
+      end
+
       def schema(definition = nil)
         @schema = Component.normalize_schema(definition) unless definition.nil?
         @schema || {}

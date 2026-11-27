@@ -98,10 +98,13 @@ module AFrame
     end
 
     # Whether A-Frame knows the component (name__id uses name). A Ruby
-    # component still waiting for its microtask is registered right away.
+    # component still waiting for its microtask is registered right away,
+    # but only once its schema is written: inside the class body, between
+    # register and schema, it keeps waiting so the schema is not lost.
     def self.component?(name)
       base = name.split("__").first
-      JS.global.__aframe_flushComponent(base) if Component.classes.key?(base)
+      klass = Component.classes[base]
+      JS.global.__aframe_flushComponent(base) if klass && klass.schema_written?
       JS.eval("AFRAME.components[#{base.inspect}] ? true : false")
     end
 
