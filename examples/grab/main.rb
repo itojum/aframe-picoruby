@@ -1,7 +1,7 @@
 require "aframe"
 
 AFrame::Scene.ready
-AFrame::CameraLock.install
+# 掴んでいる間に視点が回らないのは、index.html の <a-scene camera-lock> による
 
 # grab-target 属性を付けた図形（index.html）は、そのまま掴める。
 # 掴んだ・離したは grab / release イベントで分かる

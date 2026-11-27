@@ -1,57 +1,86 @@
 module AFrame
-  # Stops look-controls while a shape is being grabbed
-  # (lock-camera-on-grab in 1.html).
-  class CameraLock
-    class << self
-      def install(camera: "a-camera", raycaster: "[raycaster]")
-        @camera = find(camera)
-        @raycaster = find(raycaster)
+  # The camera-lock system: stops look-controls while a grab-target is
+  # being grabbed with the mouse, so dragging a shape does not turn the
+  # view. It works on scenes that have the attribute:
+  #
+  #   <a-scene camera-lock="camera: a-camera; raycaster: [raycaster]">
+  #
+  # (A-Frame creates a system for every scene, so the attribute is what
+  # turns it on.) The lock must be taken before look-controls starts
+  # dragging, which happens on the same mousedown, so it checks what the
+  # raycaster is over in a sync capture-phase handler rather than waiting
+  # for the grab event, which reaches Ruby later.
+  class CameraLock < System
+    register "camera-lock"
+    schema camera: "a-camera", raycaster: "[raycaster]"
 
-        # Must run before look-controls starts dragging, so this is a
-        # sync handler in the capture phase. No await inside.
-        JS.global.addEventListener("mousedown", sync: true, capture: true) do |_event|
-          lock if hovering?
-        end
-        JS.global.addEventListener("mouseup") { |_event| unlock }
+    # Kept for older code: puts camera-lock on a-scene with these
+    # settings.
+    def self.install(camera: "a-camera", raycaster: "[raycaster]")
+      scene = Scene.element || JS.document.querySelector("a-scene")
+      raise "a-scene not found" if scene.nil?
+
+      scene.setAttribute("camera-lock", "camera: #{camera}; raycaster: #{raycaster}")
+    end
+
+    def init
+      @locked = false
+      @camera = nil
+      # No await inside: this runs synchronously in the capture phase.
+      @mousedown_id = JS.global.addEventListener("mousedown", sync: true, capture: true) do |_event|
+        lock if active? && hovering_grab_target?
       end
+      @mouseup_id = JS.global.addEventListener("mouseup") { |_event| unlock }
+    end
 
-      private
+    private
 
-      def find(selector)
-        el = JS.document.querySelector(selector)
-        raise "#{selector} not found" if el.nil?
+    def active?
+      el.js.hasAttribute("camera-lock") ? true : false
+    end
 
-        el
+    # True when the raycaster is over a grab-target that can be grabbed
+    # (enabled), so pressing on anything else still turns the view.
+    def hovering_grab_target?
+      raycaster = JS.document.querySelector(data.raycaster)
+      return false if raycaster.nil?
+
+      component = raycaster[:components][:raycaster]
+      return false if component.nil?
+
+      els = component[:intersectedEls]
+      return false if els.nil?
+
+      els.to_a.any? do |target|
+        grab = target[:components]["grab-target"]
+        !grab.nil? && grab[:data][:enabled]
       end
+    end
 
-      def hovering?
-        component = @raycaster[:components][:raycaster]
-        return false if component.nil?
+    # Disables look-controls and remembers whether it was enabled,
+    # so unlock restores it only when this lock was taken.
+    def lock
+      return if @locked
 
-        els = component[:intersectedEls]
-        !els.nil? && els[:length] > 0
-      end
+      camera = JS.document.querySelector(data.camera)
+      return if camera.nil?
 
-      # Disables look-controls and remembers whether it was enabled,
-      # so unlock restores it only when this lock was taken.
-      def lock
-        return if @locked
+      look_controls = camera[:components]["look-controls"]
+      return if look_controls.nil?
 
-        look_controls = @camera[:components]["look-controls"]
-        return if look_controls.nil?
+      @camera = camera
+      @previous_enabled = look_controls[:data][:enabled]
+      look_controls[:mouseDown] = false
+      camera.setAttribute("look-controls", "enabled: false")
+      @locked = true
+    end
 
-        @previous_enabled = look_controls[:data][:enabled]
-        look_controls[:mouseDown] = false
-        @camera.setAttribute("look-controls", "enabled: false")
-        @locked = true
-      end
+    def unlock
+      return unless @locked
 
-      def unlock
-        return unless @locked
-
-        @locked = false
-        @camera.setAttribute("look-controls", "enabled: #{@previous_enabled}")
-      end
+      @locked = false
+      @camera.setAttribute("look-controls", "enabled: #{@previous_enabled}")
+      @camera = nil
     end
   end
 end
