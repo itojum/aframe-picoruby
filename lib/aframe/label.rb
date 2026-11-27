@@ -60,10 +60,12 @@ module AFrame
     # Sizes the canvas to the text, then draws the plate and the text.
     def draw
       text = data.value.to_s
-      size = font_size(data.font)
-      pad = size * 0.4
       ctx = @canvas.getContext("2d")
       ctx[:font] = data.font
+      # The browser gives the font back in px (40pt => 53.3333px), so the
+      # size is read from there, whatever unit was written.
+      size = font_size(ctx[:font].to_s)
+      pad = size * 0.4
       width = ctx.measureText(text)[:width] + pad * 2
       height = size + pad * 2
       # Setting the size clears the canvas and its state, so draw after.

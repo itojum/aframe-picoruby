@@ -132,6 +132,7 @@ module AFrame
     def set_attribute(name, value, *property_value)
       name = name.is_a?(Symbol) ? Entity.attribute_name(name) : name.to_s
       unless property_value.empty?
+        Entity.component?(name) # registers a waiting Ruby component first
         Entity.install_setters
         JS.global.__aframe_setProperty(@js, name, value.to_s, Entity.attribute_value(property_value.first))
         return self
