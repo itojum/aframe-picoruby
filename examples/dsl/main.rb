@@ -108,7 +108,9 @@ check("AFrame::Component attaches (spin_box:)") do
 end
 
 # Components and attributes are set up once A-Frame loads the elements
-# (a later turn), so these are checked from the frame loop.
+# (a later turn), so these are checked from the frame loop. Each one is a
+# check of its own, so a missing element (an earlier check failed) shows
+# as NG here too.
 group = AFrame::Entity.find("#dsl-group")
 spin = AFrame::Entity.find("#dsl-spin")
 start = nil
@@ -116,11 +118,19 @@ frames = 0
 AFrame::Scene.on_tick do
   frames += 1
   if frames == 5
-    start = spin.rotation.y
-    puts "#{group.position.z == -3 ? "ok" : "NG"}: position: from the DSL is applied after load (z = #{group.position.z})"
+    check("position: from the DSL is applied after load") do
+      raise "#dsl-group not found" if group.nil?
+
+      group.position.z == -3
+    end
+    start = spin.rotation.y unless spin.nil?
   end
   if frames == 65
-    puts "#{spin.rotation.y > start ? "ok" : "NG"}: spin-box turns the DSL-made box (#{(spin.rotation.y - start).round(3)} rad in 60 frames)"
+    check("spin-box turns the DSL-made box") do
+      raise "#dsl-spin not found" if spin.nil?
+
+      spin.rotation.y > start
+    end
   end
 end
 AFrame::Scene.run
