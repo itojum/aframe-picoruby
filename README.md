@@ -112,6 +112,8 @@ group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなけ�
 - `parent:` には Entity、JS の要素、セレクターの文字列を渡せます。セレクターが見つからなければ例外になり、要素は作りません
 
 - 値は A-Frame の属性の文字列に直して渡します：配列と座標の Hash（`{ x:, y:, z: }`）は `"0 1 0"`、そのほかの Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
+- Hash の値に `;` が入っていると（`label: { value: "a; b" }`）、`;` が区切りと読まれて切れてしまうので、そのときは文字列にまとめずにプロパティごとに渡します（A-Frame が知っている部品のとき）
+- `entity.set_attribute(:label, :value, "つかんだ！")` のように3つ渡すと、部品のプロパティを1つだけ変えます（ほかのプロパティはそのまま。`;` を含む文字も渡せます）
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じ部品を複数付けるときの `__` はそのまま残します（`animation__spin:`）
 - 作った直後から使えます。A-Frame の読み込みが終わる（`hasLoaded` が true になる）のは、イベントループの次の番です
 
@@ -135,6 +137,31 @@ end
 - ブロックを付けると、その要素の子を作れます。各メソッドは作った `Entity` を返し、`AFrame.scene` は一番外側で作った要素の配列を返します
 - `AFrame.scene(parent: "#group") { ... }` で、作る場所を `a-scene` 以外にできます（`Entity.create` の `parent:` と同じ）
 - ブロックは `instance_eval` で動くので、外側のローカル変数は使えますが、外側の `self` のメソッド（トップレベルで定義したメソッドなど）は呼べません
+
+### 日本語の文字を出す（label）
+
+A-Frame の `text` のフォントには日本語の文字がないので、日本語を出すには `label` 部品を使います。端末のフォントで canvas に描いて、要素の mesh として出します（canvas は DOM に置きません）。
+
+```html
+<a-entity position="0 2.5 -2" label="value: 持てるよ; height: 0.3"></a-entity>
+```
+
+```ruby
+hint = AFrame::Entity.create("a-entity", position: [0, 2.5, -2], label: { value: "持てるよ", height: 0.3 })
+hint.set_attribute(:label, :value, "つかんだ！")   # 文字だけ変える
+```
+
+| 設定 | 既定 | 内容 |
+|---|---|---|
+| `value` | `""` | 出す文字 |
+| `height` | `0.3` | 板の高さ（m）。幅は文字数から決まる |
+| `color` | `#ffffff` | 文字の色 |
+| `background` | `rgba(0, 0, 0, 0.55)` | 板の色（角の丸い板） |
+| `font` | `bold 96px sans-serif` | canvas に描くフォント（CSS の書き方）。px が大きいほど細かく描く |
+
+- `value` / `color` / `background` / `font` を変えると描き直し、`height` だけなら大きさだけ変えます。要素を消すと、テクスチャなども破棄します
+- 端末に入っているフォントで描くので、ネットにつながっていなくても出せます。Quest のブラウザに日本語フォントがあるか、近づいたときにぼやけないかは、まだ実機で確かめていません
+- `examples/grab/` では、箱の上の札が、掴むと「つかんだ！」、離すと「持てるよ」に変わります（`grab` / `release` イベントを聞いているだけで、部品どうしは直接触っていません）
 
 ### A-Frame のプロパティを触る
 
@@ -223,12 +250,13 @@ end
 | `AFrame::Entity.find(selector)` | 最初に見つかった要素を Entity で返す。見つからなければ `nil`（`querySelector` と同じ） |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
-| `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
+| `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する / 部品のプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `deg_to_rad` / `rad_to_deg` を使う |
 | `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` を使う |
 | `X.instances`（X は Component のサブクラス） | その部品の生きているインスタンスの配列（作った順） |
 | `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
 | `AFrame::Grabbable.instances` / `#grab_distance` / `#grab_distance=` / `#following_ray?` / `#grabbed?` | `grab-target` の部品の一覧と、マウスで掴んでいる図形の ray の起点からの距離（負の値は 0 になる） |
+| `label` 属性（`AFrame::Label`） | 日本語を含む文字を、角の丸い板に描いて出す。設定は `value` / `height` / `color` / `background` / `font` |
 | `camera-lock` 属性（`AFrame::CameraLock`、a-scene に付ける System） | 掴める `grab-target` の上でマウスを押したときに `look-controls` を止め、離したときに戻す。設定は `camera`（既定 `a-camera`）と `raycaster`（既定 `[raycaster]`） |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | 前の書き方との互換のために残している。`a-scene` に `camera-lock` 属性を付けるだけ |
 
@@ -261,7 +289,8 @@ lib/
     ├── system.rb        … Ruby で書く A-Frame の System
     ├── builder.rb       … AFrame.scene（ブロックで要素を作る）
     ├── camera_lock.rb   … 掴んでいる間の視点固定（camera-lock の System）
-    └── grabbable.rb     … 図形を掴んで動かす部品（grab-target）
+    ├── grabbable.rb     … 図形を掴んで動かす部品（grab-target）
+    └── label.rb         … 日本語の文字を出す部品（label）
 examples/
 ├── index.html
 ├── grab/                … マウスで図形を掴んで動かすデモ

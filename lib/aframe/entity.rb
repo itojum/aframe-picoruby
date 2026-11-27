@@ -79,6 +79,46 @@ module AFrame
       COORDINATE_KEY_SETS.include?(hash.keys.map { |k| k.to_s }.sort)
     end
 
+    # The bridge's setAttribute takes two strings only; these pass an
+    # object, or a component name, a property and a value.
+    # With wait, the write goes in a microtask: a Ruby component waits in
+    # one (queued by register, so earlier) until its class body is done,
+    # and this one then runs after it is registered.
+    SETTERS_SOURCE = <<~JS
+      window.__aframe_setProperties = (el, name, properties, wait) => {
+        const set = () => el.setAttribute(name, properties);
+        wait ? queueMicrotask(set) : set();
+      };
+      window.__aframe_setProperty = (el, name, property, value, wait) => {
+        const set = () => el.setAttribute(name, property, value);
+        wait ? queueMicrotask(set) : set();
+      };
+    JS
+
+    def self.install_setters
+      JS.eval(SETTERS_SOURCE) if JS.global[:__aframe_setProperty].nil?
+    end
+
+    # A Hash of properties (not coordinates) with ";" in a value.
+    def self.semicolon_properties?(value)
+      return false unless value.is_a?(Hash) && !coordinates?(value)
+
+      value.values.any? { |v| attribute_value(v).include?(";") }
+    end
+
+    # Whether A-Frame knows the component (name__id uses name).
+    def self.component?(name)
+      base = name.split("__").first
+      JS.eval("AFRAME.components[#{base.inspect}] ? true : false")
+    end
+
+    # A Ruby component registered in Ruby but still waiting for its
+    # microtask (it is never registered early, so its class body is done
+    # first).
+    def self.waiting_component?(name)
+      Component.classes.key?(name.split("__").first) && !component?(name)
+    end
+
     def self.attribute_name(symbol)
       symbol.to_s.split("__").map { |part| part.tr("_", "-") }.join("__")
     end
@@ -94,9 +134,34 @@ module AFrame
     # (animation__spin: => "animation__spin").
     # setAttribute only takes two strings, so values go through
     # Entity.attribute_value.
-    def set_attribute(name, value)
+    #
+    # A property value with ";" (label: { value: "a; b" }) cannot go in the
+    # one-string form, where ";" separates properties, so such a Hash is
+    # passed as a JS object, property by property. That needs a registered
+    # component (an unknown one would get "[object Object]"), so for a Ruby
+    # component still waiting to register, the write waits until it is.
+    #
+    # With three arguments, sets one property of a component and leaves the
+    # others as they are (any text, ";" included):
+    #   hint.set_attribute(:label, :value, "つかんだ！")
+    def set_attribute(name, value, *property_value)
       name = name.is_a?(Symbol) ? Entity.attribute_name(name) : name.to_s
-      @js.setAttribute(name, Entity.attribute_value(value))
+      unless property_value.empty?
+        Entity.install_setters
+        JS.global.__aframe_setProperty(@js, name, value.to_s, Entity.attribute_value(property_value.first),
+                                       Entity.waiting_component?(name))
+        return self
+      end
+      waiting = Entity.waiting_component?(name)
+      if Entity.semicolon_properties?(value) && (waiting || Entity.component?(name))
+        properties = {}
+        value.each { |k, v| properties[k.to_s] = Entity.attribute_value(v) }
+        # The bridge's setAttribute takes two strings only, so go through JS.
+        Entity.install_setters
+        JS.global.__aframe_setProperties(@js, name, JS::Bridge.to_js(properties), waiting)
+      else
+        @js.setAttribute(name, Entity.attribute_value(value))
+      end
       self
     end
 
