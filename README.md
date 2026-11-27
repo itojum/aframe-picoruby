@@ -76,7 +76,7 @@ items = AFrame::Grabbable.attach_all(".my-grabbable",
 item = items.first
 item.enabled = false        # 掴めなくする。掴んでいる最中なら離す（on_release も呼ぶ）
 item.grab_distance += 0.5   # マウスで掴んでいる最中に、ray の起点からの距離を変える
-item.detach                 # 掴めなくし、イベントリスナーを外し、Grabbable.items から取り除く
+item.detach                 # 掴めなくし、イベントリスナーを外し、Grabbable.items から取り除く（元に戻せない）
 ```
 
 `examples/grab/` では、マウスで掴んでいる間にホイールで図形を近づけたり遠ざけたりできます。
@@ -109,7 +109,7 @@ AFrame::Entity.create("a-box", parent: group, position: [0, 1, 0], color: "tomat
 | `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]", grab_color: "#ffffff", pause_animation: true)` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は `grab_color` になり（`nil` なら変えない）、`pause_animation` が true なら `animation` が止まる |
 | `Grabbable#enabled=` / `#enabled?` | 掴める・掴めないを切り替える。掴んでいる最中に false にすると離し、`on_release` を呼ぶ |
 | `Grabbable#grab_distance` / `#grab_distance=` | マウスで掴んでいる図形の、ray の起点からの距離（負の値は 0 になる） |
-| `Grabbable#detach` | 掴めなくし、`mousedown` のリスナーを外し、`Grabbable.items` から取り除く（掴んでいる最中なら離す） |
+| `Grabbable#detach` | 掴めなくし、`mousedown` のリスナーを外し、`Grabbable.items` から取り除く（掴んでいる最中なら離す）。後から `enabled = true` にしても掴めない |
 | `Grabbable#on_grab { \|entity\| }` / `#on_release { \|entity\| }` | 掴んだとき・離したときに呼ぶ処理を登録する（複数登録できる）。`attach_all` が返す配列の要素に対して呼ぶ |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | raycaster が図形と交差しているときに押されたマウスでは `look-controls` を止める |
 

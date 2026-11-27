@@ -94,6 +94,7 @@ module AFrame
       @pause_animation = pause_animation
       @original_color = nil
       @enabled = true
+      @detached = false
       @grabbed = false
       @grab_distance = 0
       @holder = nil
@@ -111,9 +112,9 @@ module AFrame
     end
 
     # false stops grabbing, and releases the shape (running the release
-    # hooks) when it is held.
+    # hooks) when it is held. A detached shape stays disabled.
     def enabled=(value)
-      @enabled = value ? true : false
+      @enabled = value && !@detached ? true : false
       force_release unless @enabled
     end
 
@@ -128,6 +129,7 @@ module AFrame
     # Disabled and removed before the release hooks run, so a hook cannot
     # grab it again.
     def detach
+      @detached = true
       @enabled = false
       unless @listener_id.nil?
         JS::Object.removeEventListener(@listener_id)
