@@ -54,12 +54,13 @@ module AFrame
       Grabbable.install_mouseup
     end
 
-    # enabled: false releases a shape that is held. pause_animation
-    # changed while held pauses or resumes the animation right away.
+    # enabled: false releases a shape that is held. grab_color and
+    # pause_animation changed while held apply right away.
     def update(old_data)
       return release_now unless data.enabled
       return unless @grabbed
 
+      apply_grab_color
       if data.pause_animation && !@paused
         el.pause_animation
         @paused = true
@@ -129,13 +130,7 @@ module AFrame
       end
       @grabbed = true
       @cursor = cursor
-      # "none" keeps the color (A-Frame turns an empty value into the
-      # default, so "" cannot be used).
-      color = data.grab_color.to_s
-      unless color.empty? || color == "none"
-        @original_color = el.color
-        el.color = color
-      end
+      apply_grab_color
       if data.pause_animation
         el.pause_animation
         @paused = true
@@ -163,6 +158,22 @@ module AFrame
     end
 
     private
+
+    # Sets the grab color, saving the original the first time; "none"
+    # (A-Frame turns an empty value into the default, so "" cannot be
+    # used) puts the original back.
+    def apply_grab_color
+      color = data.grab_color.to_s
+      if color.empty? || color == "none"
+        unless @original_color.nil?
+          el.color = @original_color
+          @original_color = nil
+        end
+      else
+        @original_color = el.color if @original_color.nil?
+        el.color = color
+      end
+    end
 
     # Releases without a mouseup (enabled: false, remove).
     def release_now
