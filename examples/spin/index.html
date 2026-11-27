@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>A-Frame 回転デモ（PicoRuby 版）</title>
+  <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
+</head>
+<body>
+  <a-scene background="color: #1a1a2e">
+
+    <a-entity position="0 0 4">
+      <a-camera look-controls wasd-controls></a-camera>
+    </a-entity>
+
+    <a-light type="ambient" color="#666"></a-light>
+    <a-light type="directional" position="-2 4 3" intensity="0.8"></a-light>
+
+    <!-- spin-box は main.rb で Ruby のクラスとして定義する部品 -->
+    <a-box spin-box position="-1.5 1.5 -2" color="#4CC3D9"></a-box>
+    <a-box spin-box="speed: 90" position="0 1.5 -2" color="#EF2D5E"></a-box>
+    <a-box spin-box="speed: -180" position="1.5 1.5 -2" color="#FFC65D"></a-box>
+
+    <a-plane position="0 0 -2" rotation="-90 0 0" width="12" height="12" color="#16213e"></a-plane>
+
+  </a-scene>
+
+  <script type="text/ruby-importmap">
+  { "imports": { "aframe": "/lib/aframe.rb" } }
+  </script>
+  <script type="text/ruby" src="https://cdn.jsdelivr.net/npm/importmap-picoruby@0/loader.rb"></script>
+  <script type="text/ruby-app" src="main.rb"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@4.0.6-head.20261119/dist/init.iife.js"></script>
+</body>
+</html>

@@ -107,6 +107,32 @@ box.addEventListener("click") { |event| puts "click" }
 - `Entity` 自身のメソッド（`color` / `position` など）と、Ruby の `Object` のメソッド（`class` / `hash` / `send` など）は渡しません。そのときは `entity.js.hash` のように `js` を使います
 - `?` や `!` で終わる名前は JS に渡せず、`NoMethodError` になります
 
+### Ruby で部品（コンポーネント）を作る
+
+JS の `AFRAME.registerComponent` にあたるものを Ruby のクラスで書けます（`examples/spin/`）。
+
+```ruby
+class SpinBox < AFrame::Component
+  register "spin-box"
+  schema speed: { type: :number, default: 30 }
+
+  def tick(time, delta)
+    el.object3D.rotation.y += deg_to_rad(data.speed * delta / 1000)
+  end
+end
+```
+
+```html
+<a-box spin-box="speed: 90"></a-box>
+```
+
+- `schema` は A-Frame の schema と同じ形です（Symbol でも文字列でもよい）。`schema type: :number, default: 1` のように書くと、プロパティが1つだけの部品になり、`data` は値そのものになります
+- `register` より前に書いた要素にも、後から作った要素（`Entity.create(..., spin_box: { speed: 90 })`）にも付きます
+- 上書きできるのは `init` / `update(old_data)` / `tick(time, delta)` / `remove` です。`initialize` は上書きしないでください
+- `el` は要素の `Entity`、`data` は属性を読んだ結果（`data.speed`）、`component` は JS の部品です
+- フックは A-Frame の中から同期で呼ぶので、中で `await` は使えません。例外を出してもコンソールに出すだけです
+- `tick` は `Scene.on_tick` からまとめて呼びます（`Scene.run` を呼ばなくても動きます）。要素を `pause` している間は呼ばれません。同じ部品を1つの要素に複数付ける（`spin-box__a`）ことはできません
+
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。
 
 ## API
@@ -121,6 +147,7 @@ box.addEventListener("click") { |event| puts "click" }
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.rotation.y`） |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity か JS の要素。省略時は `a-scene`）の子にして、Entity で返す |
 | `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
+| `class X < AFrame::Component` / `register(name)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `deg_to_rad` / `rad_to_deg` を使う |
 | `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]", grab_color: "#ffffff", pause_animation: true)` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は `grab_color` になり（`nil` なら変えない）、`pause_animation` が true なら `animation` が止まる |
 | `Grabbable#enabled=` / `#enabled?` | 掴める・掴めないを切り替える。掴んでいる最中に false にすると離し、`on_release` を呼ぶ |
 | `Grabbable#grab_distance` / `#grab_distance=` | マウスで掴んでいる図形の、ray の起点からの距離（負の値は 0 になる） |
@@ -153,11 +180,13 @@ lib/
     ├── version.rb       … AFrame::VERSION
     ├── scene.rb         … シーンの読み込み待ちとフレームループ
     ├── entity.rb        … A-Frame 要素の薄いラッパー
+    ├── component.rb     … Ruby で書く A-Frame の部品
     ├── camera_lock.rb   … 掴んでいる間の視点固定
     └── grabbable.rb     … 図形を掴んで動かす
 examples/
 ├── index.html
-└── grab/                … マウスで図形を掴んで動かすデモ
+├── grab/                … マウスで図形を掴んで動かすデモ
+└── spin/                … Ruby で定義した部品で図形を回すデモ
 ```
 
 ## License
