@@ -193,7 +193,8 @@ lib/
 examples/
 ├── index.html
 ├── grab/                … マウスで図形を掴んで動かすデモ
-└── spin/                … Ruby で定義した部品で図形を回すデモ
+├── spin/                … Ruby で定義した部品で図形を回すデモ
+└── dsl/                 … instance_eval 型 DSL が動くかの確認（#40）
 ```
 
 ## License
