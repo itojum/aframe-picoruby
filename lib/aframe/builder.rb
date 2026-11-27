@@ -16,13 +16,16 @@ module AFrame
     class << self
       # Defines a method for every primitive A-Frame knows (a-box => box,
       # a-gltf-model => gltf_model) plus entity. Primitives registered later
-      # are added on the next AFrame.scene.
+      # are added on the next AFrame.scene. A name a Builder already
+      # answers to, private ones included (tag, created, initialize, puts,
+      # ...), is left alone; such a tag is made with tag "a-...".
       def define_tags
         tags = JS.eval("Object.keys(AFRAME.primitives.primitives).join(' ')").to_s.split(" ")
         tags << "a-entity"
+        probe = Builder.new
         tags.each do |tag_name|
           name = method_name(tag_name)
-          next if name.empty? || method_defined?(name.to_sym)
+          next if name.empty? || probe.respond_to?(name.to_sym, true)
 
           define_method(name.to_sym) do |**attributes, &block|
             tag(tag_name, **attributes, &block)
