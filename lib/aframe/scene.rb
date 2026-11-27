@@ -15,6 +15,8 @@ module AFrame
       end
 
       # Registers a block called once per frame with (time, delta) in ms.
+      # For small experiments: frame work normally belongs in a component
+      # or system tick (README: 毎フレームの処理をどこに書くか).
       # The block runs inside A-Frame's tick, before the frame is drawn,
       # so it must not await.
       def on_tick(&block)

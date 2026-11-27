@@ -199,6 +199,14 @@ end
 - `pause` / `play` は、シーンを `pause` / `play` したときに呼びます（A-Frame は System の `pause` / `play` を呼ばないので、`a-scene` のイベントから呼んでいます）
 - 部品クラスの `instances`（`Flower.instances`）で、その部品の生きているインスタンスを配列で取れます
 
+### 毎フレームの処理をどこに書くか
+
+フレームごとの処理は、まず部品（`AFrame::Component` の `tick`）か System（`AFrame::System` の `tick`）に書いてください。A-Frame の書き方（ECS）と同じで、処理がどの要素・どのシーンのものかがはっきりし、要素を消せば処理も止まります。
+
+- 要素ごとの動き（回す、伸ばす、追いかける）→ 部品の `tick`
+- シーン全体を見る処理（数える、間引く、まとめて動かす）→ System の `tick`
+- `AFrame::Scene.on_tick { |time, delta| ... }` は、クラスを書くほどでもない小さな試しのコード向けの逃げ道です。部品や System の外に処理が散らばるので、長く使うコードでは部品か System に移してください
+
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。
 
 ## API
@@ -207,7 +215,7 @@ end
 |---|---|
 | `AFrame::Scene.ready(selector = "a-scene")` | シーンを探し、読み込みが終わるまで待つ。見つからなければ例外 |
 | `AFrame::Scene.element` | `ready` で見つけた `a-scene` 要素 |
-| `AFrame::Scene.on_tick { \|time, delta\| }` | 毎フレーム呼ぶ処理を登録する（引数はミリ秒。省略してよい）。A-Frame の `tick` の中で、そのフレームを描く前に呼ぶので、変更はそのフレームに出る。中で `await` は使えない。例外を出してもコンソールに出すだけで、ほかの処理は呼ばれる |
+| `AFrame::Scene.on_tick { \|time, delta\| }` | 小さな試し向け。ふだんは部品か System の `tick` に書く。毎フレーム呼ぶ処理を登録する（引数はミリ秒。省略してよい）。A-Frame の `tick` の中で、そのフレームを描く前に呼ぶので、変更はそのフレームに出る。中で `await` は使えない。例外を出してもコンソールに出すだけで、ほかの処理は呼ばれる |
 | `AFrame::Scene.run` | A-Frame の描画ループに合わせて `on_tick` の処理を呼び続ける（戻ってこない）。VR 中も止まらない。シーンを `pause` している間は呼ばれない |
 | `AFrame::Scene.start` | `run` と同じく `on_tick` の処理を呼び始めるが、すぐに戻ってくる |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `rotation` / `scale` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.visible`） |
