@@ -3,7 +3,7 @@ module AFrame
   #
   #   class SpinBox < AFrame::Component
   #     register "spin-box"
-  #     schema speed: { type: :number, default: 30 }
+  #     schema speed: 30
   #
   #     def tick(time, delta)
   #       el.object3D.rotation.y += deg_to_rad(data.speed * delta / 1000)
@@ -42,10 +42,28 @@ module AFrame
       # Sets the schema (A-Frame's schema with Symbol or String keys and
       # values) or returns it.
       #   schema speed: { type: :number, default: 30 }  # multiple properties
+      #   schema speed: 30, label: "x"                  # defaults only
       #   schema type: :number, default: 30             # single property
+      # A value that is not a Hash is the property's default; A-Frame then
+      # picks the type from it (number, boolean, array or string).
       def schema(definition = nil)
-        @schema = definition unless definition.nil?
+        @schema = Component.normalize_schema(definition) unless definition.nil?
         @schema || {}
+      end
+
+      # A schema with type or default at the top is a single property and
+      # is kept as it is.
+      def normalize_schema(definition)
+        return definition unless definition.is_a?(Hash)
+
+        keys = definition.keys.map { |k| k.to_s }
+        return definition if keys.include?("type") || keys.include?("default")
+
+        result = {}
+        definition.each do |name, property|
+          result[name] = property.is_a?(Hash) ? property : { default: property }
+        end
+        result
       end
 
       # Called from JS (synchronously) for each lifecycle event.
