@@ -6,6 +6,7 @@ module AFrame
         raise "#{selector} not found" if @element.nil?
 
         wait(50) until @element[:hasLoaded]
+        JS.global[:__aframe_frameScene] = @element if @started
         @element
       end
 
@@ -28,6 +29,10 @@ module AFrame
 
         @started = true
         JS.eval(FRAME_SOURCE)
+        # Only this scene's tick calls the handlers, so a second scene
+        # does not run them twice and pausing this one stops them. Before
+        # ready, it is the first a-scene (or the first one that ticks).
+        JS.global[:__aframe_frameScene] = @element || JS.document.querySelector("a-scene")
         # A block passed to a JS function becomes a JS function that runs
         # Ruby synchronously, so the handlers run inside the system's tick
         # (after the components' ticks, before the render). Resuming a
@@ -53,6 +58,8 @@ module AFrame
         if (!AFRAME.systems["picoruby-frame"]) {
           AFRAME.registerSystem("picoruby-frame", {
             tick(time, delta) {
+              if (!window.__aframe_frameScene) window.__aframe_frameScene = this.el;
+              if (this.el !== window.__aframe_frameScene) return;
               if (window.__aframe_frameCallback) window.__aframe_frameCallback(time, delta);
             }
           });
