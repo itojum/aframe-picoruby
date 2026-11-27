@@ -113,6 +113,27 @@ group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなけ�
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じ部品を複数付けるときの `__` はそのまま残します（`animation__spin:`）
 - 作った直後から使えます。A-Frame の読み込みが終わる（`hasLoaded` が true になる）のは、イベントループの次の番です
 
+### ブロックでまとめて作る（AFrame.scene）
+
+```ruby
+AFrame.scene do
+  entity position: [0, 1.6, -3] do
+    box color: "#4CC3D9", spin_box: { speed: 45 }
+    6.times do |i|
+      sphere position: [i * 0.5, 1, 0], radius: 0.2, color: "hsl(#{i * 60}, 80%, 60%)"
+    end
+    tag "a-gltf-model", src: "#fish"
+  end
+end
+```
+
+- ブロックの中では、A-Frame が知っているタグ（標準のもの＋`AFRAME.registerPrimitive` で足したもの）と `entity` を、`a-` を取った名前のメソッドで作れます（`a-gltf-model` → `gltf_model`）。属性は `Entity.create` と同じ書き方です
+- 一覧にない名前は `NoMethodError` になります。一覧にないタグは `tag "a-foo", ...` で作ります
+- 名前が Builder や Ruby に元からあるメソッド（`tag` / `created` / `initialize` / `puts` / `print` / `loop` など）とかぶるタグには、メソッドを作りません。`registerPrimitive("a-loop", ...)` のようなタグは `tag "a-loop", ...` で作ってください（`loop` と書くと Ruby の `loop` が呼ばれます）
+- ブロックを付けると、その要素の子を作れます。各メソッドは作った `Entity` を返し、`AFrame.scene` は一番外側で作った要素の配列を返します
+- `AFrame.scene(parent: "#group") { ... }` で、作る場所を `a-scene` 以外にできます（`Entity.create` の `parent:` と同じ）
+- ブロックは `instance_eval` で動くので、外側のローカル変数は使えますが、外側の `self` のメソッド（トップレベルで定義したメソッドなど）は呼べません
+
 ### A-Frame のプロパティを触る
 
 `Entity` にないメソッドは、そのまま JS の要素に渡します（PicoRuby.wasm の `JS::Object` と同じく、プロパティの読み書きかメソッド呼び出しになります）。
@@ -168,6 +189,7 @@ end
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `rotation` / `scale` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.visible`） |
 | `Entity#position` / `#rotation` / `#scale` | `object3D` の `position`（THREE.Vector3）/ `rotation`（THREE.Euler、ラジアン）/ `scale`（THREE.Vector3）をそのまま返す。書き換えると要素が動く（`el.position.x = 1`、`el.rotation.y += 0.1`）。`set_position(x, y, z)` は `position.set(x, y, z)` と同じ |
 | `AFrame::Entity.find(selector)` | 最初に見つかった要素を Entity で返す。見つからなければ `nil`（`querySelector` と同じ） |
+| `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `deg_to_rad` / `rad_to_deg` を使う |
@@ -201,12 +223,14 @@ lib/
     ├── scene.rb         … シーンの読み込み待ちとフレームループ
     ├── entity.rb        … A-Frame 要素の薄いラッパー
     ├── component.rb     … Ruby で書く A-Frame の部品
+    ├── builder.rb       … AFrame.scene（ブロックで要素を作る）
     ├── camera_lock.rb   … 掴んでいる間の視点固定
     └── grabbable.rb     … 図形を掴んで動かす部品（grab-target）
 examples/
 ├── index.html
 ├── grab/                … マウスで図形を掴んで動かすデモ
-└── spin/                … Ruby で定義した部品で図形を回すデモ
+├── spin/                … Ruby で定義した部品で図形を回すデモ
+└── scene/               … AFrame.scene でシーンを組み立てるデモ
 ```
 
 ## License
