@@ -6,7 +6,7 @@ module AFrame
   #   <a-scene camera-lock="camera: a-camera; raycaster: [raycaster]">
   #
   # (A-Frame creates a system for every scene, so the attribute is what
-  # turns it on.) The lock must be taken before look-controls starts
+  # turns it on.) camera and raycaster are looked up inside that scene. The lock must be taken before look-controls starts
   # dragging, which happens on the same mousedown, so it checks what the
   # raycaster is over in a sync capture-phase handler rather than waiting
   # for the grab event, which reaches Ruby later.
@@ -42,7 +42,7 @@ module AFrame
     # True when the raycaster is over a grab-target that can be grabbed
     # (enabled), so pressing on anything else still turns the view.
     def hovering_grab_target?
-      raycaster = JS.document.querySelector(data.raycaster)
+      raycaster = el.js.querySelector(data.raycaster)
       return false if raycaster.nil?
 
       component = raycaster[:components][:raycaster]
@@ -62,7 +62,7 @@ module AFrame
     def lock
       return if @locked
 
-      camera = JS.document.querySelector(data.camera)
+      camera = el.js.querySelector(data.camera)
       return if camera.nil?
 
       look_controls = camera[:components]["look-controls"]
