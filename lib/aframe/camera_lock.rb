@@ -39,22 +39,30 @@ module AFrame
       el.js.hasAttribute("camera-lock") ? true : false
     end
 
-    # True when the raycaster is over a grab-target that can be grabbed
-    # (enabled), so pressing on anything else still turns the view.
+    # True when the target the mouse would grab is a grab-target that can
+    # be grabbed (enabled), so pressing on anything else still turns the
+    # view. The target is the cursor's intersectedEl (the cursor sends
+    # mousedown only to it), or the nearest intersection without a cursor.
     def hovering_grab_target?
       raycaster = el.js.querySelector(data.raycaster)
       return false if raycaster.nil?
 
+      target = nearest_target(raycaster)
+      return false if target.nil?
+
+      grab = target[:components]["grab-target"]
+      !grab.nil? && grab[:data][:enabled] ? true : false
+    end
+
+    def nearest_target(raycaster)
+      cursor = raycaster[:components][:cursor]
+      return cursor[:intersectedEl] unless cursor.nil?
+
       component = raycaster[:components][:raycaster]
-      return false if component.nil?
+      return nil if component.nil?
 
       els = component[:intersectedEls]
-      return false if els.nil?
-
-      els.to_a.any? do |target|
-        grab = target[:components]["grab-target"]
-        !grab.nil? && grab[:data][:enabled]
-      end
+      els.nil? || els[:length] == 0 ? nil : els[0]
     end
 
     # Disables look-controls and remembers whether it was enabled,
