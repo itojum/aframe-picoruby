@@ -22,14 +22,16 @@ module AFrame
       # Registers the component under name. The JS side is registered in a
       # microtask (after the class body, so schema can come before or after
       # register) and picks up elements that already have the attribute.
-      def register(name)
+      # multiple: true lets one element have several instances, each under
+      # name__id (spin__fast, spin__slow), as A-Frame's multiple does.
+      def register(name, multiple: false)
         raise "#{self} is already registered as #{@component_name}" if @component_name
         raise "#{name} is already registered" if Component.classes.key?(name)
 
         @component_name = name
         Component.classes[name] = self
         Component.install
-        JS.global.__aframe_defineComponent(name) do |event, id, arg|
+        JS.global.__aframe_defineComponent(name, multiple ? true : false) do |event, id, arg|
           Component.dispatch(self, event, id, arg)
         end
         self
@@ -152,21 +154,25 @@ module AFrame
       // Ids are shared by every Ruby component, as Component.instances is
       // keyed by id alone.
       window.__aframe_componentId = 0;
-      window.__aframe_defineComponent = (name, call) => {
+      window.__aframe_defineComponent = (name, multiple, call) => {
         queueMicrotask(() => {
           AFRAME.registerComponent(name, {
             schema: call("schema", 0, null),
+            multiple: multiple,
             init() { this.__rubyId = ++window.__aframe_componentId; call("init", this.__rubyId, this); },
             update(oldData) { call("update", this.__rubyId, oldData); },
             play() { call("play", this.__rubyId, null); },
             pause() { call("pause", this.__rubyId, null); },
             remove() { call("remove", this.__rubyId, null); }
           });
-          // Elements that loaded before the component existed.
-          document.querySelectorAll("[" + name + "]").forEach((el) => {
-            if (el.hasLoaded && el.components && !el.components[name]) {
-              el.setAttribute(name, el.getAttribute(name) || "");
-            }
+          // Elements that loaded before the component existed, under name
+          // (or name__id when multiple).
+          const matches = (attr) => attr === name || (multiple && attr.startsWith(name + "__"));
+          document.querySelectorAll("*").forEach((el) => {
+            if (!el.hasLoaded || !el.components) return;
+            Array.from(el.attributes).map((a) => a.name).filter(matches).forEach((attr) => {
+              if (!el.components[attr]) el.setAttribute(attr, el.getAttribute(attr) || "");
+            });
           });
         });
       };
@@ -186,6 +192,12 @@ module AFrame
     # The element as an Entity (el.object3D etc. go to JS).
     def el
       @el
+    end
+
+    # The part after __ for a multiple component (spin__fast => "fast"),
+    # or nil.
+    def id
+      @component[:id]
     end
 
     # The parsed attribute: a JS object for a multi-property schema
