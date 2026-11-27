@@ -32,10 +32,15 @@ module AFrame
         @listener_id = JS.global.addEventListener("mouseup") { |event| release_all(event) }
       end
 
-      # Releases every shape first, then emits release, so a listener
-      # cannot keep another one held.
+      # Releases every shape of this scene first, then emits release, so a
+      # listener cannot keep another one held. Each scene has its own
+      # system and listener, and touches only its own shapes, so with two
+      # scenes a shape is never handled twice for one mouseup.
       def release_all(event)
-        released = Grabbable.instances.select { |item| item.release(event) }
+        scene = el.js
+        same = JS.global[:Object]
+        mine = Grabbable.instances.select { |item| same.is(item.el.js[:sceneEl], scene) }
+        released = mine.select { |item| item.release(event) }
         released.each { |item| item.emit_release }
       end
     end
