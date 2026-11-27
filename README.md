@@ -66,6 +66,21 @@ end
 - 中で `await` を使えます。待っている間も、ほかの図形を掴む・離す処理や毎フレームの処理は止まりません
 - 同時に離れた図形がいくつあっても、先に全部を離してからフックを呼びます。フックが例外を出してもコンソールに出すだけで、ほかのフックは呼ばれます
 
+### 掴み方を変える
+
+```ruby
+items = AFrame::Grabbable.attach_all(".my-grabbable",
+  grab_color: "#ffff00",    # 掴んでいる間の色。nil なら色を変えない（既定は "#ffffff"）
+  pause_animation: false)   # 掴んでいる間も animation を止めない（既定は true）
+
+item = items.first
+item.enabled = false        # 掴めなくする。掴んでいる最中なら離す（on_release も呼ぶ）
+item.grab_distance += 0.5   # マウスで掴んでいる最中に、ray の起点からの距離を変える
+item.detach                 # 掴めなくし、イベントリスナーを外し、Grabbable.items から取り除く（元に戻せない）
+```
+
+`examples/grab/` では、マウスで掴んでいる間にホイールで図形を近づけたり遠ざけたりできます。
+
 ### Ruby から要素を作る
 
 ```ruby
@@ -100,12 +115,16 @@ box.addEventListener("click") { |event| puts "click" }
 |---|---|
 | `AFrame::Scene.ready(selector = "a-scene")` | シーンを探し、読み込みが終わるまで待つ。見つからなければ例外 |
 | `AFrame::Scene.element` | `ready` で見つけた `a-scene` 要素 |
-| `AFrame::Scene.on_tick { }` | 毎フレーム呼ぶ処理を登録する |
+| `AFrame::Scene.on_tick { \|time, delta\| }` | 毎フレーム呼ぶ処理を登録する（引数はミリ秒。省略してよい）。A-Frame の `tick` の中で、そのフレームを描く前に呼ぶので、変更はそのフレームに出る。中で `await` は使えない。例外を出してもコンソールに出すだけで、ほかの処理は呼ばれる |
 | `AFrame::Scene.run` | A-Frame の描画ループに合わせて `on_tick` の処理を呼び続ける（戻ってこない）。VR 中も止まらない。シーンを `pause` している間は呼ばれない |
+| `AFrame::Scene.start` | `run` と同じく `on_tick` の処理を呼び始めるが、すぐに戻ってくる |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.rotation.y`） |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity か JS の要素。省略時は `a-scene`）の子にして、Entity で返す |
 | `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
-| `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]")` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は白くなり、`animation` が止まる |
+| `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]", grab_color: "#ffffff", pause_animation: true)` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は `grab_color` になり（`nil` なら変えない）、`pause_animation` が true なら `animation` が止まる |
+| `Grabbable#enabled=` / `#enabled?` | 掴める・掴めないを切り替える。掴んでいる最中に false にすると離し、`on_release` を呼ぶ |
+| `Grabbable#grab_distance` / `#grab_distance=` | マウスで掴んでいる図形の、ray の起点からの距離（負の値は 0 になる） |
+| `Grabbable#detach` | 掴めなくし、`mousedown` のリスナーを外し、`Grabbable.items` から取り除く（掴んでいる最中なら離す）。後から `enabled = true` にしても掴めない |
 | `Grabbable#on_grab { \|entity\| }` / `#on_release { \|entity\| }` | 掴んだとき・離したときに呼ぶ処理を登録する（複数登録できる）。`attach_all` が返す配列の要素に対して呼ぶ |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | raycaster が図形と交差しているときに押されたマウスでは `look-controls` を止める |
 
