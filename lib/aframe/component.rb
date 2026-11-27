@@ -131,12 +131,14 @@ module AFrame
     end
 
     DEFINE_SOURCE = <<~JS
+      // Ids are shared by every Ruby component, as Component.instances is
+      // keyed by id alone.
+      window.__aframe_componentId = 0;
       window.__aframe_defineComponent = (name, call) => {
         queueMicrotask(() => {
-          let nextId = 0;
           AFRAME.registerComponent(name, {
             schema: call("schema", 0, null),
-            init() { this.__rubyId = ++nextId; call("init", this.__rubyId, this); },
+            init() { this.__rubyId = ++window.__aframe_componentId; call("init", this.__rubyId, this); },
             update(oldData) { call("update", this.__rubyId, oldData); },
             play() { call("play", this.__rubyId, null); },
             pause() { call("pause", this.__rubyId, null); },
