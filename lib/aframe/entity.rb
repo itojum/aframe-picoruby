@@ -79,6 +79,32 @@ module AFrame
       COORDINATE_KEY_SETS.include?(hash.keys.map { |k| k.to_s }.sort)
     end
 
+    # The bridge's setAttribute takes two strings only; these pass an
+    # object, or a component name, a property and a value.
+    SETTERS_SOURCE = <<~JS
+      window.__aframe_setProperties = (el, name, properties) => el.setAttribute(name, properties);
+      window.__aframe_setProperty = (el, name, property, value) => el.setAttribute(name, property, value);
+    JS
+
+    def self.install_setters
+      JS.eval(SETTERS_SOURCE) if JS.global[:__aframe_setProperty].nil?
+    end
+
+    # A Hash of properties (not coordinates) with ";" in a value.
+    def self.semicolon_properties?(value)
+      return false unless value.is_a?(Hash) && !coordinates?(value)
+
+      value.values.any? { |v| attribute_value(v).include?(";") }
+    end
+
+    # Whether A-Frame knows the component (name__id uses name). A Ruby
+    # component still waiting for its microtask is registered right away.
+    def self.component?(name)
+      base = name.split("__").first
+      JS.global.__aframe_flushComponent(base) if Component.classes.key?(base)
+      JS.eval("AFRAME.components[#{base.inspect}] ? true : false")
+    end
+
     def self.attribute_name(symbol)
       symbol.to_s.split("__").map { |part| part.tr("_", "-") }.join("__")
     end
@@ -94,9 +120,31 @@ module AFrame
     # (animation__spin: => "animation__spin").
     # setAttribute only takes two strings, so values go through
     # Entity.attribute_value.
-    def set_attribute(name, value)
+    #
+    # A property value with ";" (label: { value: "a; b" }) cannot go in the
+    # one-string form, where ";" separates properties, so such a Hash is
+    # passed as a JS object, property by property, when the component is
+    # registered (an unregistered one would get "[object Object]").
+    #
+    # With three arguments, sets one property of a component and leaves the
+    # others as they are (any text, ";" included):
+    #   hint.set_attribute(:label, :value, "つかんだ！")
+    def set_attribute(name, value, *property_value)
       name = name.is_a?(Symbol) ? Entity.attribute_name(name) : name.to_s
-      @js.setAttribute(name, Entity.attribute_value(value))
+      unless property_value.empty?
+        Entity.install_setters
+        JS.global.__aframe_setProperty(@js, name, value.to_s, Entity.attribute_value(property_value.first))
+        return self
+      end
+      if Entity.semicolon_properties?(value) && Entity.component?(name)
+        properties = {}
+        value.each { |k, v| properties[k.to_s] = Entity.attribute_value(v) }
+        # The bridge's setAttribute takes two strings only, so go through JS.
+        Entity.install_setters
+        JS.global.__aframe_setProperties(@js, name, JS::Bridge.to_js(properties))
+      else
+        @js.setAttribute(name, Entity.attribute_value(value))
+      end
       self
     end
 
