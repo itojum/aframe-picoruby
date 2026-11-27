@@ -5,22 +5,49 @@ module AFrame
       JS.document.querySelectorAll(selector).to_a.map { |js| new(js) }
     end
 
-    # Creates <tag> with the attributes, appends it to parent (an Entity or
-    # a JS element; a-scene when omitted) and returns it as an Entity.
+    # The first element matching selector as an Entity, or nil
+    # (querySelector).
+    def self.find(selector)
+      js = JS.document.querySelector(selector)
+      js.nil? ? nil : new(js)
+    end
+
+    # Creates <tag> with the attributes, appends it to parent (an Entity,
+    # a JS element or a selector; a-scene when omitted) and returns it as
+    # an Entity. A selector that matches nothing raises.
     #
     #   AFrame::Entity.create("a-box", position: [0, 1, -3], color: "tomato")
+    #   AFrame::Entity.create("a-entity", parent: "#school")
     #
     # The element is usable right away; A-Frame finishes loading it (sets
     # hasLoaded) on a later turn of the event loop.
     def self.create(tag, parent: nil, **attributes)
+      parent_js = parent_element(parent)
       entity = new(JS.document.createElement(tag))
       attributes.each { |name, value| entity.set_attribute(name, value) }
-      parent_js = parent.is_a?(Entity) ? parent.js : parent
-      parent_js ||= Scene.element || JS.document.querySelector("a-scene")
-      raise "a-scene not found" if parent_js.nil?
 
       parent_js.appendChild(entity.js)
       entity
+    end
+
+    # Looked up before the element is created, so a bad selector raises
+    # without leaving anything half made.
+    def self.parent_element(parent)
+      if parent.is_a?(Entity)
+        parent.js
+      elsif parent.is_a?(String)
+        found = JS.document.querySelector(parent)
+        raise "#{parent} not found" if found.nil?
+
+        found
+      elsif parent.nil?
+        found = Scene.element || JS.document.querySelector("a-scene")
+        raise "a-scene not found" if found.nil?
+
+        found
+      else
+        parent
+      end
     end
 
     COORDINATE_KEYS = ["x", "y", "z", "w"]
