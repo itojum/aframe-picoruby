@@ -106,6 +106,20 @@ module AFrame
       animation&.play
     end
 
+    # Any other method goes to the JS element (JS::Object reads, writes
+    # or calls the JS property of that name), so A-Frame properties read
+    # as they do in JS:
+    #   box.object3D.rotation.y += 0.1
+    # Methods of Entity and Object (class, hash, send, ...) are not
+    # forwarded; use js for those.
+    def method_missing(name, *args, &block)
+      @js.__send__(name, *args, &block)
+    end
+
+    def respond_to_missing?(name, include_private = false)
+      !name.to_s.end_with?("?", "!")
+    end
+
     private
 
     def animation

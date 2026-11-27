@@ -93,6 +93,20 @@ AFrame::Entity.create("a-box", parent: group, position: [0, 1, 0], color: "tomat
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じ部品を複数付けるときの `__` はそのまま残します（`animation__spin:`）
 - 作った直後から使えます。A-Frame の読み込みが終わる（`hasLoaded` が true になる）のは、イベントループの次の番です
 
+### A-Frame のプロパティを触る
+
+`Entity` にないメソッドは、そのまま JS の要素に渡します（PicoRuby.wasm の `JS::Object` と同じく、プロパティの読み書きかメソッド呼び出しになります）。
+
+```ruby
+box = AFrame::Entity.all("#box").first
+box.object3D.rotation.y += 0.1
+box.emit("hello")
+box.addEventListener("click") { |event| puts "click" }
+```
+
+- `Entity` 自身のメソッド（`color` / `position` など）と、Ruby の `Object` のメソッド（`class` / `hash` / `send` など）は渡しません。そのときは `entity.js.hash` のように `js` を使います
+- `?` や `!` で終わる名前は JS に渡せず、`NoMethodError` になります
+
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。
 
 ## API
@@ -104,7 +118,7 @@ AFrame::Entity.create("a-box", parent: group, position: [0, 1, 0], color: "tomat
 | `AFrame::Scene.on_tick { \|time, delta\| }` | 毎フレーム呼ぶ処理を登録する（引数はミリ秒。省略してよい）。A-Frame の `tick` の中で、そのフレームを描く前に呼ぶので、変更はそのフレームに出る。中で `await` は使えない。例外を出してもコンソールに出すだけで、ほかの処理は呼ばれる |
 | `AFrame::Scene.run` | A-Frame の描画ループに合わせて `on_tick` の処理を呼び続ける（戻ってこない）。VR 中も止まらない。シーンを `pause` している間は呼ばれない |
 | `AFrame::Scene.start` | `run` と同じく `on_tick` の処理を呼び始めるが、すぐに戻ってくる |
-| `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js` |
+| `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.rotation.y`） |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity か JS の要素。省略時は `a-scene`）の子にして、Entity で返す |
 | `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
 | `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]", grab_color: "#ffffff", pause_animation: true)` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は `grab_color` になり（`nil` なら変えない）、`pause_animation` が true なら `animation` が止まる |
