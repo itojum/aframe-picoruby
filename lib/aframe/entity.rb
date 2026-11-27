@@ -114,13 +114,25 @@ module AFrame
       @js.setAttribute("color", value)
     end
 
-    # object3D.position as [x, y, z] (relative to the parent).
+    # object3D.position (THREE.Vector3, relative to the parent). Writing to
+    # it moves the element:
+    #   el.position.x = 1
     def position
-      pos = @js[:object3D][:position]
-      [pos[:x], pos[:y], pos[:z]]
+      @js[:object3D][:position]
     end
 
-    # Called every frame, so no Array is created here.
+    # object3D.rotation (THREE.Euler, in radians):
+    #   el.rotation.y = -angle
+    def rotation
+      @js[:object3D][:rotation]
+    end
+
+    # object3D.scale (THREE.Vector3).
+    def scale
+      @js[:object3D][:scale]
+    end
+
+    # Same as position.set(x, y, z).
     def set_position(x, y, z)
       @js[:object3D][:position].set(x, y, z)
     end
