@@ -14,7 +14,7 @@ module AFrame
   #
   # A-Frame reads the schema and calls init / update / remove / play /
   # pause on a JS component whose methods call Ruby synchronously. tick is
-  # called from Scene.on_tick for every playing instance, so there is one
+  # called from the frame loop for every playing instance, so there is one
   # call from JS to Ruby per frame however many instances there are.
   # Hooks run inside A-Frame, so they must not await.
   class Component
@@ -76,12 +76,12 @@ module AFrame
 
         if event == "init"
           instance = klass.new(arg)
-          instances[id] = instance
+          registry[id] = instance
           safely(instance, :init)
           return nil
         end
 
-        instance = instances[id]
+        instance = registry[id]
         return nil if instance.nil?
 
         if event == "update"
@@ -92,7 +92,7 @@ module AFrame
           instance.playing = false
         elsif event == "remove"
           instance.playing = false
-          instances.delete(id)
+          registry.delete(id)
           safely(instance, :remove)
         end
         nil
@@ -102,36 +102,43 @@ module AFrame
         @classes ||= {}
       end
 
-      def instances
-        @instances ||= {}
+      # Every live instance of every Ruby component, by id. Shared by all
+      # subclasses, so it always lives on Component.
+      def registry
+        return Component.registry unless equal?(Component)
+
+        @registry ||= {}
       end
 
-      # Defines the JS helper and hooks tick into the frame loop, once.
-      def install
-        return if @installed
+      # The live instances of this component (all components when called
+      # on AFrame::Component), in the order they were created:
+      #   Flower.instances.each { |flower| ... }
+      def instances
+        Component.registry.values.select { |instance| instance.is_a?(self) }
+      end
 
-        @installed = true
+      # Defines the JS helper and starts the frame loop, once. Scene calls
+      # tick_all every frame before the systems and the on_tick handlers.
+      def install
+        return if Component.installed?
+
+        Component.instance_variable_set(:@installed, true)
         JS.eval(DEFINE_SOURCE)
-        Scene.on_tick { |time, delta| tick_all(time, delta) }
         Scene.start
       end
 
-      private
+      def installed?
+        Component.instance_variable_get(:@installed) ? true : false
+      end
 
+      # Calls tick on every playing instance (from Scene, once a frame).
       def tick_all(time, delta)
         # A copy, as a tick may remove an element (and its instance).
-        instances.values.each do |instance|
+        registry.values.each do |instance|
           next unless instance.playing && instance.respond_to?(:tick)
 
           safely(instance, :tick, time, delta)
         end
-      end
-
-      # A hook that raises is reported and does not stop the others.
-      def safely(instance, hook, *args)
-        instance.__send__(hook, *args)
-      rescue => e
-        puts "AFrame::Component #{instance.class.component_name} #{hook} error: #{e.message}"
       end
 
       # Symbols become strings, so the bridge passes them to JS.
@@ -148,10 +155,19 @@ module AFrame
           value
         end
       end
+
+      private
+
+      # A hook that raises is reported and does not stop the others.
+      def safely(instance, hook, *args)
+        instance.__send__(hook, *args)
+      rescue => e
+        puts "AFrame::Component #{instance.class.component_name} #{hook} error: #{e.message}"
+      end
     end
 
     DEFINE_SOURCE = <<~JS
-      // Ids are shared by every Ruby component, as Component.instances is
+      // Ids are shared by every Ruby component, as Component.registry is
       // keyed by id alone.
       window.__aframe_componentId = 0;
       window.__aframe_defineComponent = (name, multiple, call) => {

@@ -139,6 +139,28 @@ end
 - `tick` は `Scene.on_tick` からまとめて呼びます（`Scene.run` を呼ばなくても動きます）。要素を `pause` している間は呼ばれません
 - `register "spin-box", multiple: true` にすると、1つの要素に `spin-box__fast` / `spin-box__slow` のように複数付けられます（A-Frame の `multiple`）。それぞれが別のインスタンスで、`id` で `__` の後ろ（`"fast"`）を読めます。Ruby からは `spin_box__fast: { speed: 180 }` と書きます
 
+### シーン全体を見る処理を作る（AFrame::System）
+
+部品が要素1つずつに付くのに対して、System はシーンに1つだけあり、全体を見る処理を書けます（`examples/garden/`）。
+
+```ruby
+class Garden < AFrame::System
+  register "garden"
+  schema max: 8                    # <a-scene garden="max: 20"> で変えられる
+
+  def tick(time, delta)
+    flowers = Flower.instances     # 生きている Flower 部品の全部（作った順）
+    flowers.first.el.js.remove if flowers.size > data.max
+  end
+end
+```
+
+- 書き方は `AFrame::Component` と同じです：`register` / `schema` と、フック `init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play`。A-Frame の System は消えないので `remove` はありません
+- `el` は `a-scene` の Entity、`data` は `a-scene` に書いた属性（`garden="max: 20"`）です
+- 1フレームの中では、部品の `tick` を全部呼んだ後に System の `tick` を呼び、その後に `Scene.on_tick` の処理を呼びます（A-Frame と同じ順）
+- `pause` / `play` は、シーンを `pause` / `play` したときに呼びます（A-Frame は System の `pause` / `play` を呼ばないので、`a-scene` のイベントから呼んでいます）
+- 部品クラスの `instances`（`Flower.instances`）で、その部品の生きているインスタンスを配列で取れます
+
 > npm への公開前は、importmap の `aframe` に手元の `lib/aframe.rb` の URL（例：`/lib/aframe.rb`）を指定してください。
 
 ## API
@@ -156,6 +178,8 @@ end
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `deg_to_rad` / `rad_to_deg` を使う |
+| `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` を使う |
+| `X.instances`（X は Component のサブクラス） | その部品の生きているインスタンスの配列（作った順） |
 | `AFrame::Grabbable.attach_all(selector, raycaster: "[raycaster]", grab_color: "#ffffff", pause_animation: true)` | 要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。掴んでいる間は `grab_color` になり（`nil` なら変えない）、`pause_animation` が true なら `animation` が止まる |
 | `Grabbable#enabled=` / `#enabled?` | 掴める・掴めないを切り替える。掴んでいる最中に false にすると離し、`on_release` を呼ぶ |
 | `Grabbable#grab_distance` / `#grab_distance=` | マウスで掴んでいる図形の、ray の起点からの距離（負の値は 0 になる） |
@@ -189,12 +213,14 @@ lib/
     ├── scene.rb         … シーンの読み込み待ちとフレームループ
     ├── entity.rb        … A-Frame 要素の薄いラッパー
     ├── component.rb     … Ruby で書く A-Frame の部品
+    ├── system.rb        … Ruby で書く A-Frame の System
     ├── camera_lock.rb   … 掴んでいる間の視点固定
     └── grabbable.rb     … 図形を掴んで動かす
 examples/
 ├── index.html
 ├── grab/                … マウスで図形を掴んで動かすデモ
-└── spin/                … Ruby で定義した部品で図形を回すデモ
+├── spin/                … Ruby で定義した部品で図形を回すデモ
+└── garden/              … Ruby で定義した System で花を植えて間引くデモ
 ```
 
 ## License

@@ -67,8 +67,12 @@ module AFrame
         window.__aframe_setFrameCallback = (fn) => { window.__aframe_frameCallback = fn; };
       JS
 
+      # Each frame: the Ruby components' ticks, then the Ruby systems'
+      # ticks (the order A-Frame uses), then the on_tick handlers.
       # A handler that raises is reported and does not stop the others.
       def tick(time, delta)
+        Component.tick_all(time, delta) if Component.installed?
+        System.tick_all(time, delta) if System.installed?
         tick_handlers.each do |handler|
           begin
             handler.call(time, delta)
