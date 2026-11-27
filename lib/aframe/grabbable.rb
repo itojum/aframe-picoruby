@@ -45,16 +45,28 @@ module AFrame
     def init
       @grabbed = false
       @grab_distance = 0
-      @holder = nil
+      @holder = nil       # the controller holding it (nil for the mouse)
+      @cursor = nil       # the cursor that grabbed it (mouse or controller)
+      @paused = false     # whether the grab paused the animation
       @original_color = nil
       @listener_id = el.js.addEventListener("mousedown") { |event| grab(event) }
       Grabbable.instances << self
       Grabbable.install_mouseup
     end
 
-    # enabled: false releases a shape that is held.
+    # enabled: false releases a shape that is held. pause_animation
+    # changed while held pauses or resumes the animation right away.
     def update(old_data)
-      release_now unless data.enabled
+      return release_now unless data.enabled
+      return unless @grabbed
+
+      if data.pause_animation && !@paused
+        el.pause_animation
+        @paused = true
+      elsif !data.pause_animation && @paused
+        el.play_animation
+        @paused = false
+      end
     end
 
     # removeAttribute("grab-target") or removing the element: releases the
@@ -116,6 +128,7 @@ module AFrame
         @holder = nil
       end
       @grabbed = true
+      @cursor = cursor
       # "none" keeps the color (A-Frame turns an empty value into the
       # default, so "" cannot be used).
       color = data.grab_color.to_s
@@ -123,7 +136,10 @@ module AFrame
         @original_color = el.color
         el.color = color
       end
-      el.pause_animation if data.pause_animation
+      if data.pause_animation
+        el.pause_animation
+        @paused = true
+      end
       el.js.addState("grabbed")
       el.js.emit("grab", JS::Bridge.to_js({ "cursorEl" => cursor }))
     end
@@ -136,7 +152,7 @@ module AFrame
       return false unless @grabbed
       return false if !@holder.nil? && !released_by_holder?(event)
 
-      @released_by = @holder
+      @released_by = @cursor
       drop
       true
     end
@@ -152,7 +168,7 @@ module AFrame
     def release_now
       return unless @grabbed
 
-      @released_by = @holder
+      @released_by = @cursor
       drop
       emit_release
     end
@@ -165,11 +181,15 @@ module AFrame
         @holder = nil
       end
       @grabbed = false
+      @cursor = nil
       unless @original_color.nil?
         el.color = @original_color
         @original_color = nil
       end
-      el.play_animation if data.pause_animation
+      if @paused
+        el.play_animation
+        @paused = false
+      end
       el.js.removeState("grabbed")
     end
 
