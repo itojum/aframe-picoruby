@@ -125,14 +125,16 @@ module AFrame
 
     # Stops grabbing for good: releases the shape when it is held,
     # removes the mousedown listener and drops it from Grabbable.items.
+    # Disabled and removed before the release hooks run, so a hook cannot
+    # grab it again.
     def detach
-      force_release
       @enabled = false
       unless @listener_id.nil?
         JS::Object.removeEventListener(@listener_id)
         @listener_id = nil
       end
       self.class.remove(self)
+      force_release
       self
     end
 
