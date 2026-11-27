@@ -119,7 +119,7 @@ JS の `AFRAME.registerComponent` にあたるものを Ruby のクラスで書�
 ```ruby
 class SpinBox < AFrame::Component
   register "spin-box"
-  schema speed: { type: :number, default: 30 }
+  schema speed: 30   # { type: :number, default: 30 } と同じ
 
   def tick(time, delta)
     el.object3D.rotation.y += deg_to_rad(data.speed * delta / 1000)
@@ -131,7 +131,7 @@ end
 <a-box spin-box="speed: 90"></a-box>
 ```
 
-- `schema` は A-Frame の schema と同じ形です（Symbol でも文字列でもよい）。`schema type: :number, default: 1` のように書くと、プロパティが1つだけの部品になり、`data` は値そのものになります
+- `schema` は A-Frame の schema と同じ形です（Symbol でも文字列でもよい）。Hash でない値は既定値（`{ default: 値 }`）として扱い、型は A-Frame が既定値から決めます（数値 → number、true / false → boolean、配列 → array、それ以外 → string）。`schema radius: 8, label: "fish", speed: { type: :number, default: 15 }` のように混ぜて書けます。座標（vec3 など）の既定値は Hash になるので、`{ type: :vec3, default: { x: 0, y: 0, z: 0 } }` と書きます。`schema type: :number, default: 1` のように一番上に `type` か `default` を書くと、プロパティが1つだけの部品になり、`data` は値そのものになります（そのため `type` / `default` という名前のプロパティは省略形で書けません）
 - `register` より前に書いた要素にも、後から作った要素（`Entity.create(..., spin_box: { speed: 90 })`）にも付きます
 - 上書きできるのは `init` / `update(old_data)` / `tick(time, delta)` / `remove` です。`initialize` は上書きしないでください
 - `el` は要素の `Entity`、`data` は属性を読んだ結果（`data.speed`）、`component` は JS の部品です
