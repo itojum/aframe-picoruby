@@ -58,7 +58,7 @@ VR コントローラーでも掴みたいときは、カメラと同じリグ�
 ```ruby
 AFrame::Grabbable.attach_all(".my-grabbable").each do |item|
   item.on_grab    { |entity| puts "grab" }
-  item.on_release { |entity| p entity.position }
+  item.on_release { |entity| puts "#{entity.position.x}, #{entity.position.y}, #{entity.position.z}" }
 end
 ```
 
@@ -99,7 +99,7 @@ AFrame::Entity.create("a-box", parent: group, position: [0, 1, 0], color: "tomat
 
 ```ruby
 box = AFrame::Entity.all("#box").first
-box.object3D.rotation.y += 0.1
+box.object3D.visible = false
 box.emit("hello")
 box.addEventListener("click") { |event| puts "click" }
 ```
@@ -117,7 +117,7 @@ class SpinBox < AFrame::Component
   schema speed: { type: :number, default: 30 }
 
   def tick(time, delta)
-    el.object3D.rotation.y += deg_to_rad(data.speed * delta / 1000)
+    el.rotation.y += deg_to_rad(data.speed * delta / 1000)
   end
 end
 ```
@@ -144,7 +144,8 @@ end
 | `AFrame::Scene.on_tick { \|time, delta\| }` | 毎フレーム呼ぶ処理を登録する（引数はミリ秒。省略してよい）。A-Frame の `tick` の中で、そのフレームを描く前に呼ぶので、変更はそのフレームに出る。中で `await` は使えない。例外を出してもコンソールに出すだけで、ほかの処理は呼ばれる |
 | `AFrame::Scene.run` | A-Frame の描画ループに合わせて `on_tick` の処理を呼び続ける（戻ってこない）。VR 中も止まらない。シーンを `pause` している間は呼ばれない |
 | `AFrame::Scene.start` | `run` と同じく `on_tick` の処理を呼び始めるが、すぐに戻ってくる |
-| `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.rotation.y`） |
+| `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `rotation` / `scale` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.visible`） |
+| `Entity#position` / `#rotation` / `#scale` | `object3D` の `position`（THREE.Vector3）/ `rotation`（THREE.Euler、ラジアン）/ `scale`（THREE.Vector3）をそのまま返す。書き換えると要素が動く（`el.position.x = 1`、`el.rotation.y += 0.1`）。`set_position(x, y, z)` は `position.set(x, y, z)` と同じ |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity か JS の要素。省略時は `a-scene`）の子にして、Entity で返す |
 | `Entity#set_attribute(name, value)` / `Entity#append(child)` | 属性を設定する / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `deg_to_rad` / `rad_to_deg` を使う |

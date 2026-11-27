@@ -276,10 +276,10 @@ module AFrame
       return nil if r.nil?
 
       origin = r[:origin]
-      x, y, z = @entity.position
-      ddx = x - origin[:x]
-      ddy = y - origin[:y]
-      ddz = z - origin[:z]
+      pos = @entity.position
+      ddx = pos[:x] - origin[:x]
+      ddy = pos[:y] - origin[:y]
+      ddz = pos[:z] - origin[:z]
       Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz)
     end
   end

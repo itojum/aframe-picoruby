@@ -6,7 +6,7 @@ class SpinBox < AFrame::Component
   schema speed: { type: :number, default: 30 }
 
   def tick(time, delta)
-    el.object3D.rotation.y += deg_to_rad(data.speed * delta / 1000)
+    el.rotation.y += deg_to_rad(data.speed * delta / 1000)
   end
 end
 
