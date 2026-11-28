@@ -146,12 +146,15 @@ class Turn < AFrame::Component
   end
 end
 
+AFrame::Entity.create("a-box", position: [1, 1, -3], turn: true)   # turn を付けた箱が回る
+
 # コンポーネントの外では、度に Math::PI / 180 を掛けます
-box.rotation.y = 45 * Math::PI / 180
+box.on(:click) { box.rotation.y += 45 * Math::PI / 180 }    # クリックするたびに 45 度
 ```
 
 - `el.rotation.y = 90` と書くと、90 ラジアン（約 5157 度）回ります。度で考えるときは `deg_to_rad` を通してください
 - 位置（m）と大きさ（倍率）は、どちらの書き方でも単位は同じです
+- `Entity.create` した直後は、A-Frame がまだ要素を読み込んでいないので、`Entity#rotation` などに書いても、読み込みのときに属性の値で上書きされます。作った直後に向きを決めるときは、属性（`rotation: [0, 45, 0]`）で渡してください
 - どちらで書き換えても、もう一方にも反映されます（`object3D` を書き換えたあとに `getAttribute("rotation")` を読むと度で返ります）。毎フレーム動かすときは、属性の文字列を作らずに済む `Entity#rotation` などのほうが軽いです
 
 ## 日本語の文字を出す
