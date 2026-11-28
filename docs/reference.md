@@ -179,7 +179,7 @@ el.scale = [1, 2, 1]
 ```
 
 - `Entity.create` の直後など、まだ読み込まれていない要素に書くと、読み込みが終わってから書き換えます（先に書くと A-Frame が属性の値で上書きするため）。それまでは `el.position` を読んでも前の値です
-- `[x, y, z]` と `{ x:, y:, z: }`（どれかの軸だけでも可）以外を渡すと `ArgumentError` になります
+- 受け付けるのは `[x, y, z]` と `{ x:, y:, z: }`（どれかの軸だけでも可）で、`scale=` だけは数1つ（3軸とも同じ）も受け付けます。それ以外を渡すと `ArgumentError` になります
 - 回転には `rotation=` がありません（単位をどうするかは [#87](https://github.com/itojum/aframe-picoruby/issues/87) で考えています）。`el.rotation.set(x, y, z)`（ラジアン）か `set_attribute(:rotation, [x, y, z])`（度）を使ってください
 - `Entity.create` した直後は、A-Frame がまだ要素を読み込んでいないので、`Entity#rotation` などに書いても、読み込みのときに属性の値で上書きされます。作った直後に向きを決めるときは、属性（`rotation: [0, 45, 0]`）で渡してください
 - どちらで書き換えても、もう一方にも反映されます（`object3D` を書き換えたあとに `getAttribute("rotation")` を読むと度で返ります）。毎フレーム動かすときは、属性の文字列を作らずに済む `Entity#rotation` などのほうが軽いです
