@@ -69,8 +69,12 @@ module AFrame
       width = ctx.measureText(text)[:width] + pad * 2
       height = size + pad * 2
       # Setting the size clears the canvas and its state, so draw after.
+      resized = @canvas[:width] != width.ceil || @canvas[:height] != height.ceil
       @canvas[:width] = width.ceil
       @canvas[:height] = height.ceil
+      # The GPU texture keeps the size of its first upload, so a canvas of
+      # another size needs a fresh one (three.js makes it on the next draw).
+      @mesh[:material][:map].dispose if resized
       ctx[:font] = data.font
       ctx[:fillStyle] = data.background
       ctx.beginPath
