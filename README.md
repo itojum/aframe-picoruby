@@ -112,6 +112,11 @@ group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなけ�
 - `parent:` には Entity、JS の要素、セレクターの文字列を渡せます。セレクターが見つからなければ例外になり、要素は作りません
 
 - 値は A-Frame の属性の文字列に直して渡します：配列と座標の Hash（`{ x:, y:, z: }`）は `"0 1 0"`、そのほかの Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
+- 省略形：`scale: 0.5` は3軸とも同じ倍率（`"0.5 0.5 0.5"`）にします（そのまま渡すと A-Frame は x だけと読み、`0.5 1 1` になります）。プロパティが複数ある部品に `true` を渡すと、既定値のまま付けます（`swim: true` は `swim=""` と同じ）。プロパティが1つの部品（`visible: true` など）や、知らない名前には `"true"` のまま渡します
+
+  ```ruby
+  AFrame::Entity.create("a-entity", gltf_model: "#whale-shark", scale: 0.5, swim: true)
+  ```
 - Hash の値に `;` が入っていると（`label: { value: "a; b" }`）、`;` が区切りと読まれて切れてしまうので、そのときは文字列にまとめずにプロパティごとに渡します（A-Frame が知っている部品のとき）
 - `entity.set_attribute(:label, :value, "つかんだ！")` のように3つ渡すと、部品のプロパティを1つだけ変えます（ほかのプロパティはそのまま。`;` を含む文字も渡せます）
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じ部品を複数付けるときの `__` はそのまま残します（`animation__spin:`）
