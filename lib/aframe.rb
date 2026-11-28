@@ -4,6 +4,7 @@
 require "js"
 require "aframe/version"
 require "aframe/easing"
+require "aframe/animation"
 require "aframe/scene"
 require "aframe/entity"
 require "aframe/timer"

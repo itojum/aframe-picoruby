@@ -93,6 +93,11 @@ module AFrame
     # The elements made directly in this Builder's block.
     attr_reader :created
 
+    # A Float from min up to max (AFrame.random), as in components.
+    def random(min, max)
+      AFrame.random(min, max)
+    end
+
     # Creates any tag, for those not in the list:
     #   tag "a-ocean", depth: 50
     # Symbols before the attributes attach components with their defaults,

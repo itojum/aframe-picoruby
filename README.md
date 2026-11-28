@@ -54,7 +54,7 @@ AFrame::Scene.run            # フレームループ（戻ってこない）
 | コンポーネントを Ruby で書く | [`AFrame::Component`](docs/reference.md#コンポーネントを作る) |
 | コンポーネントの中で「n 秒後」「n 秒ごと」に処理する | [`after` / `every`](docs/reference.md#コンポーネントの中で待つ) |
 | シーン全体を見る処理（System）を Ruby で書く | [`AFrame::System`](docs/reference.md#シーン全体を見る処理を作る) |
-| 補間と乱数を使う | [`AFrame::Easing` / `AFrame.random`](docs/reference.md#補間と乱数) |
+| 補間と乱数を使う・animation を秒で書く | [`AFrame::Easing` / `AFrame.random` / `AFrame.animation`](docs/reference.md#補間と乱数) |
 
 毎フレームの処理をどこに書くかの目安と、すべての API の一覧も[リファレンス](docs/reference.md)にあります。
 
@@ -91,6 +91,7 @@ lib/
 └── aframe/
     ├── version.rb       … AFrame::VERSION
     ├── easing.rb        … 補間（AFrame::Easing）と乱数（AFrame.random）
+    ├── animation.rb     … animation の値を秒で作る（AFrame.animation）
     ├── scene.rb         … シーンの読み込み待ちとフレームループ
     ├── entity.rb        … A-Frame 要素の薄いラッパー
     ├── component.rb     … Ruby で書く A-Frame のコンポーネント
