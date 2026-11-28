@@ -9,7 +9,8 @@ module AFrame
   #
   # property is the animated property (:rotation, :position, :scale,
   # "material.color", ...; rotation is in degrees, as in the attribute).
-  # to: / from: take what attributes take ([x, y, z], a number, a color).
+  # to: / from: take what attributes take ([x, y, z], a number, a color;
+  # a number for scale sets all three axes).
   # dur: and delay: are seconds (fractions too). easing: takes a Symbol
   # like AFrame::Easing's (:ease_in_out_sine => "easeInOutSine") or
   # A-Frame's name as a String. loop: is true or a count. alternate: true
@@ -19,8 +20,9 @@ module AFrame
   def self.animation(property, to: nil, from: nil, dur: nil, delay: nil, easing: nil,
                      loop: nil, alternate: false, **others)
     value = { property: property.to_s }
-    value[:from] = from unless from.nil?
-    value[:to] = to unless to.nil?
+    # The attribute's short forms apply (scale: 2 is [2, 2, 2]).
+    value[:from] = Entity.shorthand(property.to_s, from) unless from.nil?
+    value[:to] = Entity.shorthand(property.to_s, to) unless to.nil?
     value[:dur] = seconds_to_ms(dur) unless dur.nil?
     value[:delay] = seconds_to_ms(delay) unless delay.nil?
     value[:easing] = easing_name(easing) unless easing.nil?

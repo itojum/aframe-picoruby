@@ -439,7 +439,7 @@ end
 ```
 
 - 最初の引数は動かすプロパティです（`:rotation` / `:position` / `:scale` / `"material.color"` など）。`rotation` は属性と同じく度です
-- `to:` / `from:` は属性と同じ形（`[x, y, z]`、数、色の文字列）で渡します
+- `to:` / `from:` は属性と同じ形（`[x, y, z]`、数、色の文字列）で渡します。`scale` に数を1つ渡すと、属性と同じく3軸とも同じ倍率にします
 - `dur:` / `delay:` は秒です（小数も可）。ミリ秒に直して渡します
 - `easing:` は `AFrame::Easing` と同じ名前の Symbol です（`:ease_in_out_sine` → `easeInOutSine`）。A-Frame にしかない曲線（`easeOutElastic` など）は、Symbol（`:ease_out_elastic`）か A-Frame の名前の文字列で渡します
 - `loop:` は `true` か回数です。`alternate: true` は行って戻る動き（`dir: alternate`）で、`loop:` を書かなければ繰り返します
