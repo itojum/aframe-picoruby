@@ -197,6 +197,36 @@ module AFrame
       self
     end
 
+    # Listens for event (a Symbol or a String, used as it is:
+    # :grab, "model-loaded") and returns a value to pass to off. The block
+    # may take the event or nothing:
+    #   listener = shark.on(:grab) { hint.set_attribute(:label, :value, "つかんだ！") }
+    #   shark.on(:release) { |event| p event[:detail][:cursorEl] }
+    #   shark.off(listener)
+    # The block runs after the event has been dispatched (it cannot call
+    # preventDefault); use js.addEventListener(name, sync: true) for that.
+    def on(event, &block)
+      raise ArgumentError, "on needs a block" if block.nil?
+
+      listen(event, false, block)
+    end
+
+    # Like on, but stops listening after the first event (the browser's
+    # once, so events already queued do not call it again). The returned
+    # value can be passed to off before then.
+    def once(event, &block)
+      raise ArgumentError, "once needs a block" if block.nil?
+
+      listen(event, true, block)
+    end
+
+    # Stops the listener that on or once returned. Other listeners for the
+    # same event, on this element or elsewhere, keep listening.
+    def off(listener)
+      JS::Object.removeEventListener(listener) unless listener.nil?
+      nil
+    end
+
     # Moves child (an Entity or a JS element) under this entity.
     def append(child)
       @js.appendChild(child.is_a?(Entity) ? child.js : child)
@@ -270,6 +300,20 @@ module AFrame
     end
 
     private
+
+    # The bridge names a listener after its block, so each call passes a
+    # new block: the same Proc given twice still gets two listeners that
+    # off can stop one by one. A block takes the event whatever its
+    # parameters (|event = nil| too); only a lambda without parameters,
+    # which would raise, is called without it.
+    def listen(event, once, handler)
+      takes_event = !(handler.lambda? && handler.arity == 0)
+      if once
+        @js.addEventListener(event.to_s, once: true) { |e| takes_event ? handler.call(e) : handler.call }
+      else
+        @js.addEventListener(event.to_s) { |e| takes_event ? handler.call(e) : handler.call }
+      end
+    end
 
     def animation
       @js[:components][:animation]
