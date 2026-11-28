@@ -233,6 +233,11 @@ module AFrame
 
     def remove; end
 
+    # A Float from min up to max (AFrame.random).
+    def random(min, max)
+      AFrame.random(min, max)
+    end
+
     def deg_to_rad(degrees)
       degrees * Math::PI / 180
     end

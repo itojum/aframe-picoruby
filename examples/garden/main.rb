@@ -1,12 +1,21 @@
 require "aframe"
 
-# 花1本ずつに付く部品：少しずつ伸びる
+# 花1本ずつに付く部品：duration 秒かけて height まで伸びる
+# （初めは速く、伸びきる前にゆっくりになる）
 class Flower < AFrame::Component
   register "flower"
-  schema speed: 0.3 # 1秒に伸びる高さ
+  schema height: 3, duration: 4 # 伸びきったときの縦の倍率と、かかる秒数
+
+  def init
+    @start = el.scale.y
+    @t = 0.0 # 0 から 1 まで進む
+  end
 
   def tick(time, delta)
-    el.scale.y += data.speed * delta / 1000 if el.scale.y < 3
+    return if @t >= 1
+
+    @t = [@t + delta / 1000.0 / data.duration, 1.0].min
+    el.scale.y = @start + (data.height - @start) * AFrame::Easing.ease_out_cubic(@t)
   end
 end
 
@@ -43,7 +52,7 @@ class Garden < AFrame::System
                           position: [Math.cos(angle) * radius, 0, -3 + Math.sin(angle) * radius],
                           radius: 0.08, height: 0.5, scale: [1, 0.2, 1],
                           color: "hsl(#{(@count * 47) % 360}, 70%, 60%)",
-                          flower: { speed: 0.2 + (@count % 3) * 0.15 })
+                          flower: { height: random(2.0, 3.5), duration: random(3, 6) })
   end
 end
 

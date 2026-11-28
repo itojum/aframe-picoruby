@@ -226,6 +226,33 @@ end
 - `pause` / `play` は、シーンを `pause` / `play` したときに呼びます（A-Frame は System の `pause` / `play` を呼ばないので、`a-scene` のイベントから呼んでいます）
 - 部品クラスの `instances`（`Flower.instances`）で、その部品の生きているインスタンスを配列で取れます
 
+### 補間（easing）と乱数
+
+動きを付けるときによく使う関数を用意しています。
+
+```ruby
+class Bob < AFrame::Component
+  register "bob"
+  schema duration: 2
+
+  def init
+    @t = 0.0
+    @height = random(0.5, 1.5)   # 0.5 以上 1.5 未満の小数
+  end
+
+  def tick(time, delta)
+    @t = [@t + delta / 1000.0 / data.duration, 1.0].min
+    el.position.y = @height * AFrame::Easing.ease_in_out_sine(@t)
+  end
+end
+```
+
+- `AFrame::Easing` には `linear` と、`ease_in_` / `ease_out_` / `ease_in_out_` に `sine` / `quad` / `cubic` を付けたものがあります。0 から 1 の `t` を渡すと、0 から 1 の値を返します。名前は A-Frame の `animation` 部品の `easing`（`easeInOutSine`）に合わせています
+- 式は広く使われているもの（Penner の式）です。A-Frame の `animation` は同じ名前の曲線を近似して描くので、途中で最大 0.035 ほど違います（始めと終わりは同じ）
+- 設定から選ばせるときは `AFrame::Easing.send(data.easing, t)` と書けます（`schema easing: "ease_out_cubic"`）
+- `AFrame.random(min, max)` は min 以上 max 未満の小数を返します。部品と System の中では `random(min, max)` と書けます。PicoRuby.wasm の `rand` は小数や範囲を受け付けない（`rand(3.0)` はいつも `0.0`、`rand(3..11)` はエラー）ので、こちらを使ってください
+- `examples/garden/` では、花が `ease_out_cubic` で伸び、伸びる高さと時間を `random` で決めています
+
 ### 毎フレームの処理をどこに書くか
 
 フレームごとの処理は、まず部品（`AFrame::Component` の `tick`）か System（`AFrame::System` の `tick`）に書いてください。A-Frame の書き方（ECS）と同じで、処理がどの要素・どのシーンのものかがはっきりし、要素を消せば処理も止まります。
@@ -248,11 +275,13 @@ end
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `rotation` / `scale` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.visible`） |
 | `Entity#position` / `#rotation` / `#scale` | `object3D` の `position`（THREE.Vector3）/ `rotation`（THREE.Euler、ラジアン）/ `scale`（THREE.Vector3）をそのまま返す。書き換えると要素が動く（`el.position.x = 1`、`el.rotation.y += 0.1`）。`set_position(x, y, z)` は `position.set(x, y, z)` と同じ |
 | `AFrame::Entity.find(selector)` | 最初に見つかった要素を Entity で返す。見つからなければ `nil`（`querySelector` と同じ） |
+| `AFrame::Easing.ease_in_out_sine(t)` など | 補間。`linear` と `ease_in_` / `ease_out_` / `ease_in_out_` × `sine` / `quad` / `cubic`。0〜1 を受け取り 0〜1 を返す |
+| `AFrame.random(min, max)` | min 以上 max 未満の小数。部品・System の中では `random(min, max)` |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する / 部品のプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
-| `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `deg_to_rad` / `rad_to_deg` を使う |
-| `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` を使う |
+| `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `random` / `deg_to_rad` / `rad_to_deg` を使う |
+| `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` / `random` を使う |
 | `X.instances`（X は Component のサブクラス） | その部品の生きているインスタンスの配列（作った順） |
 | `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
 | `AFrame::Grabbable.instances` / `#grab_distance` / `#grab_distance=` / `#following_ray?` / `#grabbed?` | `grab-target` の部品の一覧と、マウスで掴んでいる図形の ray の起点からの距離（負の値は 0 になる） |
@@ -283,6 +312,7 @@ lib/
 ├── aframe.rb            … require を並べるだけのエントリ
 └── aframe/
     ├── version.rb       … AFrame::VERSION
+    ├── easing.rb        … 補間（AFrame::Easing）と乱数（AFrame.random）
     ├── scene.rb         … シーンの読み込み待ちとフレームループ
     ├── entity.rb        … A-Frame 要素の薄いラッパー
     ├── component.rb     … Ruby で書く A-Frame の部品
