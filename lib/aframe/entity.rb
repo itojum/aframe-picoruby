@@ -176,20 +176,16 @@ module AFrame
     def on(event, &block)
       raise ArgumentError, "on needs a block" if block.nil?
 
-      @js.addEventListener(event.to_s, &block)
+      listen(event, false, block)
     end
 
-    # Like on, but stops listening after the first event. The returned
+    # Like on, but stops listening after the first event (the browser's
+    # once, so events already queued do not call it again). The returned
     # value can be passed to off before then.
     def once(event, &block)
       raise ArgumentError, "once needs a block" if block.nil?
 
-      listener = nil
-      listener = @js.addEventListener(event.to_s) do |e|
-        JS::Object.removeEventListener(listener)
-        block.call(e)
-      end
-      listener
+      listen(event, true, block)
     end
 
     # Stops the listener that on or once returned. Other listeners for the
@@ -259,6 +255,19 @@ module AFrame
     end
 
     private
+
+    # The bridge names a listener after its block, so each call passes a
+    # new block: the same Proc given twice still gets two listeners that
+    # off can stop one by one. A block or lambda without parameters is
+    # called without the event.
+    def listen(event, once, handler)
+      takes_event = handler.arity != 0
+      if once
+        @js.addEventListener(event.to_s, once: true) { |e| takes_event ? handler.call(e) : handler.call }
+      else
+        @js.addEventListener(event.to_s) { |e| takes_event ? handler.call(e) : handler.call }
+      end
+    end
 
     def animation
       @js[:components][:animation]
