@@ -13,7 +13,7 @@ aframe_picoruby の使い方と API をまとめたページです。はじめ�
 - [コンポーネントの中で待つ](#コンポーネントの中で待つ)：`after` / `every`
 - [シーン全体を見る処理を作る](#シーン全体を見る処理を作る)：`AFrame::System`
 - [補間と乱数](#補間と乱数)：`AFrame::Easing` / `AFrame.random`
-- [毎フレームの処理をどこに書くか](#毎フレームの処理をどこに書くか)
+- [毎フレームの処理をどこに書くか](#毎フレームの処理をどこに書くか)：重くなったときの書き方も
 - [API 一覧](#api-一覧)
 
 ## 掴んで動かす
@@ -296,6 +296,30 @@ end
 - 要素ごとの動き（回す、伸ばす、追いかける）→ コンポーネントの `tick`
 - シーン全体を見る処理（数える、間引く、まとめて動かす）→ System の `tick`
 - `AFrame::Scene.on_tick { |time, delta| ... }` は、クラスを書くほどでもない小さな試しのコード向けの逃げ道です。コンポーネントや System の外に処理が散らばるので、長く使うコードではコンポーネントか System に移してください
+
+### 重くなったとき
+
+`data` や `el.position` などの JS の値は、読み書きするたびに JS と Ruby の間を行き来します。1回あたりは小さく、手元の Chromium で測ると、`data.xxx` を1回読むのに約 0.7µs でした（コンポーネント200個が毎フレーム3回ずつ読んで、1フレームあたり約 0.4ms）。数十個のコンポーネントなら気にしなくてかまいません。
+
+コンポーネントを数百個置いて、毎フレーム何度も `data` を読むときは、`update` で Ruby の変数に写しておき、`tick` ではそれを使うと軽くなります（`update` は属性が変わったときに呼ばれるので、写した値も追いつきます）。
+
+```ruby
+class Swim < AFrame::Component
+  register "swim"
+  schema speed: 1.0, amp: 0.5
+
+  def update(old_data)
+    @speed = data.speed
+    @amp = data.amp
+  end
+
+  def tick(time, delta)
+    el.position.y = Math.sin(time / 1000.0 * @speed) * @amp
+  end
+end
+```
+
+- Quest などの実機では、まだ測っていません
 
 ## API 一覧
 
