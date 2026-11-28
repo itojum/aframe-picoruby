@@ -72,6 +72,27 @@ module AFrame
         @component_name
       end
 
+      # Listens for event on the element while the component plays, like
+      # A-Frame's events: connected when it plays, disconnected when it
+      # pauses or is removed. The block runs in the instance (el, data and
+      # private methods work) and may take the event or nothing:
+      #   on(:grab) { show data.grabbed }
+      #   on(:release) { |event| p event[:detail][:cursorEl] }
+      # Each instance (multiple: true included) gets its own listener.
+      # Subclasses keep their parent's handlers.
+      def on(event, &block)
+        raise ArgumentError, "on needs a block" if block.nil?
+
+        (@event_handlers ||= []) << [event.to_s, block]
+        nil
+      end
+
+      # [[event, block], ...]: the parent's first, then this class's.
+      def event_handlers
+        inherited = superclass.respond_to?(:event_handlers) ? superclass.event_handlers : []
+        inherited + (@event_handlers || [])
+      end
+
       # Sets the schema (A-Frame's schema with Symbol or String keys and
       # values) or returns it.
       #   schema speed: { type: :number, default: 30 }  # multiple properties
@@ -119,10 +140,13 @@ module AFrame
           safely(instance, :update, arg)
         elsif event == "play"
           instance.playing = true
+          instance.connect_events
         elsif event == "pause"
           instance.playing = false
+          instance.disconnect_events
         elsif event == "remove"
           instance.playing = false
+          instance.disconnect_events
           registry.delete(id)
           safely(instance, :remove)
           instance.cancel_timers
@@ -333,6 +357,30 @@ module AFrame
 
       @timers.each { |timer| timer.cancel }
       @timers = []
+    end
+
+    # Connects the class's on handlers (called on play).
+    def connect_events
+      return unless @listeners.nil?
+
+      @listeners = self.class.event_handlers.map do |event, block|
+        takes_event = !(block.lambda? && block.arity == 0)
+        el.on(event) do |e|
+          begin
+            takes_event ? instance_exec(e, &block) : instance_exec(&block)
+          rescue => error
+            puts "AFrame::Component #{self.class.component_name} #{event} error: #{error.message}"
+          end
+        end
+      end
+    end
+
+    # Disconnects them (called on pause and remove).
+    def disconnect_events
+      return if @listeners.nil?
+
+      @listeners.each { |listener| el.off(listener) }
+      @listeners = nil
     end
 
     def deg_to_rad(degrees)

@@ -8,7 +8,7 @@ aframe_picoruby の使い方と API をまとめたページです。はじめ�
 - [要素を作る](#要素を作る)：`Entity.create` と `AFrame.scene`
 - [位置・回転・大きさを変える](#位置回転大きさを変える)：回転の単位（度とラジアン）
 - [日本語の文字を出す](#日本語の文字を出す)：`label`
-- [イベントを受け取る](#イベントを受け取る)：`on` / `once` / `off`
+- [イベントを受け取る](#イベントを受け取る)：`on` / `once` / `off`、コンポーネントのクラスに書く `on`
 - [A-Frame のプロパティを触る](#a-frame-のプロパティを触る)：`method_missing`
 - [コンポーネントを作る](#コンポーネントを作る)：`AFrame::Component`
 - [コンポーネントの中で待つ](#コンポーネントの中で待つ)：`after` / `every`
@@ -94,11 +94,14 @@ group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなけ�
 - `parent:` には Entity、JS の要素、セレクターの文字列を渡せます。セレクターが見つからなければ例外になり、要素は作りません
 
 - 値は A-Frame の属性の文字列に直して渡します：配列と座標の Hash（`{ x:, y:, z: }`）は `"0 1 0"`、そのほかの Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
-- 省略形：`scale: 0.5` は3軸とも同じ倍率（`"0.5 0.5 0.5"`）にします（そのまま渡すと A-Frame は x だけと読み、`0.5 1 1` になります）。プロパティが複数あるコンポーネントに `true` を渡すと、既定値のまま付けます（`swim: true` は `swim=""` と同じ）。プロパティが1つのコンポーネント（`visible: true` など）や、知らない名前には `"true"` のまま渡します
+- コンポーネントを既定値のまま付けるときは、属性より前に Symbol で並べます（HTML の `<a-entity swim grab-target>` と同じ）。名前の `_` は属性名と同じく `-` に直します（`:grab_target` → `grab-target`）。文字列で渡すと、属性名と同じく書いたまま使います（`"grab-target"`）
 
   ```ruby
-  AFrame::Entity.create("a-entity", gltf_model: "#whale-shark", scale: 0.5, swim: true)
+  AFrame::Entity.create("a-entity", :swim, :grab_target, gltf_model: "#whale-shark", scale: 0.5)
   ```
+
+  書き分けのルールは「Symbol は既定値で付ける、Hash は設定、それ以外は値」です。`true` はいつも `"true"` として渡します（`visible: true` は `visible="true"`）
+- 省略形：`scale: 0.5` は3軸とも同じ倍率（`"0.5 0.5 0.5"`）にします（そのまま渡すと A-Frame は x だけと読み、`0.5 1 1` になります）
 - Hash の値に `;` が入っていると（`label: { value: "a; b" }`）、`;` が区切りと読まれて切れてしまうので、そのときは文字列にまとめずにプロパティごとに渡します（A-Frame が知っているコンポーネントのとき）
 - `entity.set_attribute(:label, :value, "つかんだ！")` のように3つ渡すと、コンポーネントのプロパティを1つだけ変えます（ほかのプロパティはそのまま。`;` を含む文字も渡せます）
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じコンポーネントを複数付けるときの `__` はそのまま残します（`animation__spin:`）
@@ -132,7 +135,7 @@ AFrame.scene do
 end
 ```
 
-- ブロックの中では、A-Frame が知っているタグ（標準のもの＋`AFRAME.registerPrimitive` で足したもの）と `entity` を、`a-` を取った名前のメソッドで作れます（`a-gltf-model` → `gltf_model`）。属性は `Entity.create` と同じ書き方です
+- ブロックの中では、A-Frame が知っているタグ（標準のもの＋`AFRAME.registerPrimitive` で足したもの）と `entity` を、`a-` を取った名前のメソッドで作れます（`a-gltf-model` → `gltf_model`）。属性は `Entity.create` と同じ書き方で、既定値のまま付けるコンポーネントも Symbol で書けます（`entity :swim, gltf_model: "#whale-shark"`）
 - 一覧にない名前は `NoMethodError` になります。一覧にないタグは `tag "a-foo", ...` で作ります
 - 名前が Builder や Ruby に元からあるメソッド（`tag` / `created` / `initialize` / `puts` / `print` / `loop` など）とかぶるタグには、メソッドを作りません。`registerPrimitive("a-loop", ...)` のようなタグは `tag "a-loop", ...` で作ってください（`loop` と書くと Ruby の `loop` が呼ばれます）
 - ブロックを付けると、その要素の子を作れます。各メソッドは作った `Entity` を返し、`AFrame.scene` は一番外側で作った要素の配列を返します
@@ -160,7 +163,7 @@ class Turn < AFrame::Component
   end
 end
 
-AFrame::Entity.create("a-box", position: [1, 1, -3], turn: true)   # turn を付けた箱が回る
+AFrame::Entity.create("a-box", :turn, position: [1, 1, -3])   # turn を付けた箱が回る
 
 # コンポーネントの外では、度に Math::PI / 180 を掛けます
 box.on(:click) { box.rotation.y += 45 * Math::PI / 180 }    # クリックするたびに 45 度
@@ -194,7 +197,7 @@ hint.set_attribute(:label, :value, "つかんだ！")   # 文字だけ変える
 
 - `value` / `color` / `background` / `font` を変えると描き直し、`height` だけなら大きさだけ変えます。要素を消すと、テクスチャなども破棄します
 - 端末に入っているフォントで描くので、ネットにつながっていなくても出せます。Quest のブラウザに日本語フォントがあるか、近づいたときにぼやけないかは、まだ実機で確かめていません
-- [`examples/grab/`](../examples/grab/) では、箱の上の札が、掴むと「つかんだ！」、離すと「持てるよ」に変わります（`grab` / `release` イベントを受け取っているだけで、コンポーネントどうしは直接触っていません）
+- [`examples/grab/`](../examples/grab/) では、箱の上の札が、掴むと「つかんだ！」、離すと「持てるよ」に変わります（箱に付けた `grab-hint` コンポーネントが `grab` / `release` イベントを受け取っているだけで、コンポーネントどうしは直接触っていません）
 
 ## イベントを受け取る
 
@@ -211,6 +214,36 @@ shark.off(listener)   # この listener だけやめる
 - `on` / `once` は、受け取るのをやめるための値を返します。やめるときは、その値を `off` に渡します。同じイベントを受け取っているほかの処理（別のコンポーネントなど）はそのまま残ります
 - `once` は最初のイベントで受け取るのをやめます。それより前なら `off` でやめられます
 - ブロックは、イベントを配り終えた後に呼びます。`preventDefault` などイベントを配っている最中に呼ぶ必要があるときは、`shark.js.addEventListener("click", sync: true) { |event| ... }` を使います
+
+### コンポーネントの中で受け取る
+
+コンポーネントが受け取るイベントは、クラスに `on` で書けます（A-Frame の `events` にあたるもの。[`examples/grab/`](../examples/grab/)）。
+
+```ruby
+class GrabHint < AFrame::Component
+  register           # "grab-hint"
+  schema hint: "", grabbed: "つかんだ！", idle: "持てるよ"
+
+  on(:grab) { show data.grabbed }
+  on(:release) { |event| show data.idle }
+
+  private
+
+  def show(text)
+    AFrame::Entity.find(data.hint)&.set_attribute(:label, :value, text)
+  end
+end
+```
+
+```html
+<a-box grab-target grab-hint="hint: #box-hint"></a-box>
+```
+
+- イベントは、コンポーネントを付けた要素から受け取ります
+- ブロックはインスタンスの中で動くので、`el` / `data` / private メソッドが使えます。イベントは `Entity#on` と同じく、受け取っても受け取らなくてもかまいません
+- 要素が動き始めたとき（`play`）につなぎ、`pause` したときと、コンポーネントを外したとき（`remove`）に外します。`pause` している間のイベントは受け取りません
+- `multiple: true` のコンポーネントでは、インスタンスごとにつなぎます。親クラスに書いた `on` も受け取ります
+- ブロックで例外が出ても、コンソールに出すだけです（ほかの `on` はそのまま動きます）
 
 ## A-Frame のプロパティを触る
 
@@ -385,9 +418,9 @@ end
 | `AFrame::Easing.ease_in_out_sine(t)` など | 補間。`linear` と `ease_in_` / `ease_out_` / `ease_in_out_` × `sine` / `quad` / `cubic`。0〜1 を受け取り 0〜1 を返す |
 | `AFrame.random(min, max)` | min 以上 max 未満の小数。コンポーネント・System の中では `random(min, max)` |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
-| `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
+| `AFrame::Entity.create(tag, *components, parent: nil, **attributes)` | 要素を作り（`components` の Symbol は既定値のまま付けるコンポーネント）、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する（コンポーネントに Hash を渡すと、渡したプロパティだけ変えてほかは残す）/ コンポーネントのプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
-| `class X < AFrame::Component` / `register(name = nil, multiple: false)`（名前を省略するとクラス名から） / `schema(hash)` | Ruby で A-Frame のコンポーネントを定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `random` / `after` / `every` / `deg_to_rad` / `rad_to_deg` を使う |
+| `class X < AFrame::Component` / `register(name = nil, multiple: false)`（名前を省略するとクラス名から） / `schema(hash)` / `on(event) { \|event\| ... }` | Ruby で A-Frame のコンポーネントを定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `random` / `after` / `every` / `deg_to_rad` / `rad_to_deg` を使う |
 | `class X < AFrame::System` / `register(name = nil)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` / `delta_seconds` / `random` を使う |
 | `X.instances`（X は Component のサブクラス） | そのコンポーネントの生きているインスタンスの配列（作った順） |
 | `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
