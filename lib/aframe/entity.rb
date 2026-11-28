@@ -280,10 +280,53 @@ module AFrame
       @js[:object3D][:visible] = value ? true : false
     end
 
+    # Moves the element, like Entity.create's position: (meters, relative
+    # to the parent). Writes object3D directly, light enough for every
+    # frame:
+    #   el.position = [0, 1.5, -2]
+    #   el.position = { y: 2 }       # keys left out keep their value
+    # Before the element has loaded (just after Entity.create), A-Frame
+    # would overwrite object3D with the attributes, so the write waits for
+    # the loaded event; until then position still reads the old value.
+    def position=(value)
+      write_vector("position", value)
+    end
+
+    # Resizes the element, like Entity.create's scale:. A number sets all
+    # three axes:
+    #   el.scale = 0.5               # [0.5, 0.5, 0.5]
+    #   el.scale = [1, 2, 1]
+    # Waits for the element to load, like position=.
+    def scale=(value)
+      value = [value, value, value] if value.is_a?(Integer) || value.is_a?(Float)
+      write_vector("scale", value)
+    end
+
     # Same as position.set(x, y, z).
     def set_position(x, y, z)
       @js[:object3D][:position].set(x, y, z)
     end
+
+    # [x, y, z] or { x:, y:, z: } (any of the keys, Symbol or String) as
+    # { "x" => x, ... }, or nil.
+    def self.vector_values(value)
+      if value.is_a?(Array) && value.size == 3
+        { "x" => value[0], "y" => value[1], "z" => value[2] }
+      elsif value.is_a?(Hash) && !value.empty? && value.keys.all? { |k| %w[x y z].include?(k.to_s) }
+        values = {}
+        value.each { |k, v| values[k.to_s] = v }
+        values
+      end
+    end
+
+    # Writes to object3D[name] once the element has loaded (A-Frame sets
+    # object3D from the attributes when it loads).
+    VECTOR_SOURCE = <<~JS
+      window.__aframe_setVector = (el, name, values) => {
+        const set = () => Object.assign(el.object3D[name], values);
+        el.hasLoaded ? set() : el.addEventListener("loaded", set, { once: true });
+      };
+    JS
 
     def pause_animation
       animation&.pause
@@ -320,6 +363,19 @@ module AFrame
         @js.addEventListener(event.to_s, once: true) { |e| takes_event ? handler.call(e) : handler.call }
       else
         @js.addEventListener(event.to_s) { |e| takes_event ? handler.call(e) : handler.call }
+      end
+    end
+
+    def write_vector(name, value)
+      values = Entity.vector_values(value)
+      raise ArgumentError, "#{name}= takes [x, y, z] or { x:, y:, z: }, not #{value.inspect}" if values.nil?
+
+      if @js[:hasLoaded]
+        vector = @js[:object3D][name.to_sym]
+        values.each { |k, v| vector[k.to_sym] = v }
+      else
+        JS.eval(VECTOR_SOURCE) if JS.global[:__aframe_setVector].nil?
+        JS.global.__aframe_setVector(@js, name, JS::Bridge.to_js(values))
       end
     end
 
