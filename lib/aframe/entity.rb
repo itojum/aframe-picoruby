@@ -99,9 +99,14 @@ module AFrame
       JS.eval(SETTERS_SOURCE) if JS.global[:__aframe_setProperty].nil?
     end
 
-    # A Hash of properties (not coordinates) with ";" in a value.
+    # A non-empty Hash of properties (not coordinates).
+    def self.properties?(value)
+      value.is_a?(Hash) && !value.empty? && !coordinates?(value)
+    end
+
+    # A Hash of properties with ";" in a value.
     def self.semicolon_properties?(value)
-      return false unless value.is_a?(Hash) && !coordinates?(value)
+      return false unless properties?(value)
 
       value.values.any? { |v| attribute_value(v).include?(";") }
     end
@@ -168,6 +173,10 @@ module AFrame
     # passed as a JS object, property by property. That needs a registered
     # component (an unknown one would get "[object Object]"), so for a Ruby
     # component still waiting to register, the write waits until it is.
+    # Any Hash for a waiting component goes that way too: written as a
+    # string it would replace what an earlier write set, while a JS object
+    # written after registration changes only its own properties (as it
+    # does for a registered component).
     #
     # scale: 0.5 sets all three axes, and component: true attaches a
     # component with several properties with its defaults (see shorthand).
@@ -185,7 +194,7 @@ module AFrame
       end
       value = Entity.shorthand(name, value)
       waiting = Entity.waiting_component?(name)
-      if Entity.semicolon_properties?(value) && (waiting || Entity.component?(name))
+      if (waiting && Entity.properties?(value)) || (Entity.semicolon_properties?(value) && Entity.component?(name))
         properties = {}
         value.each { |k, v| properties[k.to_s] = Entity.attribute_value(v) }
         # The bridge's setAttribute takes two strings only, so go through JS.
