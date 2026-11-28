@@ -49,6 +49,7 @@ AFrame::Scene.run            # フレームループ（戻ってこない）
 | Ruby から要素を作る | [`AFrame::Entity.create` / `AFrame.scene`](docs/reference.md#要素を作る) |
 | 位置・回転・大きさを変える（回転は属性が度、`Entity#rotation` がラジアン） | [`position` / `rotation` / `scale`](docs/reference.md#位置回転大きさを変える) |
 | 日本語の文字を出す | [`label`](docs/reference.md#日本語の文字を出す) |
+| 図形の端を回転の中心にする | [`anchor`](docs/reference.md#回転の中心を端にするanchor) |
 | イベントを受け取る | [`on` / `once` / `off`](docs/reference.md#イベントを受け取る) |
 | A-Frame のプロパティやメソッドをそのまま使う | [`Entity` から JS へ渡す](docs/reference.md#a-frame-のプロパティを触る) |
 | コンポーネントを Ruby で書く | [`AFrame::Component`](docs/reference.md#コンポーネントを作る) |
@@ -99,7 +100,8 @@ lib/
     ├── builder.rb       … AFrame.scene（ブロックで要素を作る）
     ├── camera_lock.rb   … 掴んでいる間の視点固定（camera-lock の System）
     ├── grabbable.rb     … 図形を掴んで動かすコンポーネント（grab-target）
-    └── label.rb         … 日本語の文字を出すコンポーネント（label）
+    ├── label.rb         … 日本語の文字を出すコンポーネント（label）
+    └── anchor.rb        … 回転の中心を図形の端にするコンポーネント（anchor）
 docs/
 └── reference.md         … 使い方と API の一覧
 examples/

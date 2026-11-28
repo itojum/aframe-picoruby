@@ -6,7 +6,7 @@ aframe_picoruby の使い方と API をまとめたページです。はじめ�
 
 - [掴んで動かす](#掴んで動かす)：`grab-target` と `camera-lock`
 - [要素を作る](#要素を作る)：`Entity.create` と `AFrame.scene`
-- [位置・回転・大きさを変える](#位置回転大きさを変える)：回転の単位（度とラジアン）
+- [位置・回転・大きさを変える](#位置回転大きさを変える)：回転の単位（度とラジアン）、回転の中心を端にする `anchor`
 - [日本語の文字を出す](#日本語の文字を出す)：`label`
 - [イベントを受け取る](#イベントを受け取る)：`on` / `once` / `off`、コンポーネントのクラスに書く `on`
 - [A-Frame のプロパティを触る](#a-frame-のプロパティを触る)：`method_missing`
@@ -186,6 +186,31 @@ el.scale = [1, 2, 1]
 - 回転には `rotation=` がありません（単位をどうするかは [#87](https://github.com/itojum/aframe-picoruby/issues/87) で考えています）。`el.rotation.set(x, y, z)`（ラジアン）か `set_attribute(:rotation, [x, y, z])`（度）を使ってください
 - `Entity.create` した直後は、A-Frame がまだ要素を読み込んでいないので、`Entity#rotation` などに書いても、読み込みのときに属性の値で上書きされます。作った直後に向きを決めるときは、属性（`rotation: [0, 45, 0]`）で渡してください
 - どちらで書き換えても、もう一方にも反映されます（`object3D` を書き換えたあとに `getAttribute("rotation")` を読むと度で返ります）。毎フレーム動かすときは、属性の文字列を作らずに済む `Entity#rotation` などのほうが軽いです
+
+### 回転の中心を端にする（anchor）
+
+A-Frame の図形は、中心が要素の原点にあります。根もとを軸に回したいときや、先に次のものをつなげたいときは、`anchor` で端を原点に寄せます。
+
+```ruby
+AFrame.scene do
+  entity rotation: [0, 0, 20] do            # 根もとを軸に 20 度傾く
+    cone height: 1, radius_bottom: 0.2, anchor: :bottom
+    entity position: [0, 1, 0] do           # 先（高さ 1）に次を付ける
+      sphere radius: 0.2
+    end
+  end
+  box width: 0.8, anchor: :left             # 左端が原点（扉や時計の針）
+end
+```
+
+```html
+<a-cone height="1" anchor="bottom"></a-cone>
+```
+
+- 値は `bottom` / `top`（y）、`left` / `right`（x）、`front` / `back`（z）、`center`（既定。A-Frame のまま）です
+- ずらすのは要素の図形（mesh）だけです。子の要素や、要素自身の `position` の意味は変わりません
+- ずらす量は図形の大きさ（bounding box）から決めます。`height` などを変えたときや、glTF のモデルを読み込んだときは、計算し直します
+- A-Frame にもとからある `pivot` コンポーネントとは別のものです（`pivot` は座標で指定し、付けたときに1回だけ、子も含めて動かします）
 
 ## 日本語の文字を出す
 
@@ -440,5 +465,6 @@ end
 | `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
 | `AFrame::Grabbable.instances` / `#grab_distance` / `#grab_distance=` / `#following_ray?` / `#grabbed?` | `grab-target` のコンポーネントの一覧と、マウスで掴んでいる図形の ray の起点からの距離（負の値は 0 になる） |
 | `label` 属性（`AFrame::Label`） | 日本語を含む文字を、角の丸い板に描いて出す。設定は `value` / `height` / `color` / `background` / `font` |
+| `anchor` 属性（`AFrame::Anchor`） | 図形（mesh）をずらし、`bottom` / `top` / `left` / `right` / `front` / `back` の端を要素の原点に合わせる（既定は `center`）。図形が変わると計算し直す |
 | `camera-lock` 属性（`AFrame::CameraLock`、a-scene に付ける System） | 掴める `grab-target` の上でマウスを押したときに `look-controls` を止め、離したときに戻す。設定は `camera`（既定 `a-camera`）と `raycaster`（既定 `[raycaster]`） |
 | `AFrame::CameraLock.install(camera: "a-camera", raycaster: "[raycaster]")` | 前の書き方との互換のために残している。`a-scene` に `camera-lock` 属性を付けるだけ |
