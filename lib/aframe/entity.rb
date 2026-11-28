@@ -258,10 +258,11 @@ module AFrame
 
     # The bridge names a listener after its block, so each call passes a
     # new block: the same Proc given twice still gets two listeners that
-    # off can stop one by one. A block or lambda without parameters is
-    # called without the event.
+    # off can stop one by one. A block takes the event whatever its
+    # parameters (|event = nil| too); only a lambda without parameters,
+    # which would raise, is called without it.
     def listen(event, once, handler)
-      takes_event = handler.arity != 0
+      takes_event = !(handler.lambda? && handler.arity == 0)
       if once
         @js.addEventListener(event.to_s, once: true) { |e| takes_event ? handler.call(e) : handler.call }
       else
