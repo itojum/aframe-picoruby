@@ -292,7 +292,7 @@ end
 ```
 
 - `schema` は A-Frame の schema と同じ形です（Symbol でも文字列でもよい）。Hash でない値は既定値（`{ default: 値 }`）として扱い、型は A-Frame が既定値から決めます（数値 → number、true / false → boolean、配列 → array、それ以外 → string）。`schema radius: 8, label: "fish", speed: { type: :number, default: 15 }` のように混ぜて書けます。座標（vec3 など）の既定値は Hash になるので、`{ type: :vec3, default: { x: 0, y: 0, z: 0 } }` と書きます。`schema type: :number, default: 1` のように一番上に `type` か `default` を書くと、プロパティが1つだけのコンポーネントになり、`data` は値そのものになります（そのため `type` / `default` という名前のプロパティは省略形で書けません）
-- `register` の名前を省略すると、クラス名を kebab-case にした名前になります（`SpinBox` → `spin-box`、`CameraLock` → `camera-lock`）。大文字が続くところはまとめます（`XRHand` → `xr-hand`）。モジュールの中のクラスは最後の名前だけを使います（`Game::SpinBox` → `spin-box`）。クラス名と違う名前にしたいときは `register "grab-target"` のように書きます。System の `register` も同じです
+- `register` の名前を省略すると、クラス名を kebab-case にした名前になります（`SpinBox` → `spin-box`、`CameraLock` → `camera-lock`）。大文字が続くところはまとめ（`XRHand` → `xr-hand`）、`_` は `-` に直します（`Spin_Box` → `spin-box`。Symbol の属性名と同じ）。モジュールの中のクラスは最後の名前だけを使います（`Game::SpinBox` → `spin-box`）。クラス名と違う名前にしたいときは `register "grab-target"` のように書きます。System の `register` も同じです
 - `register` より前に書いた要素にも、後から作った要素（`Entity.create(..., spin_box: { speed: 90 })`）にも付きます
 - 上書きできるのは `init` / `update(old_data)` / `tick(time, delta)` / `remove` です。`initialize` は上書きしないでください
 - `el` は要素の `Entity`、`data` は属性を読んだ結果（`data.speed`）、`component` は JS のコンポーネントです
