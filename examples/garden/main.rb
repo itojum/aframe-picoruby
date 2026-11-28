@@ -6,7 +6,7 @@ class Flower < AFrame::Component
   schema speed: 0.3 # 1秒に伸びる高さ
 
   def tick(time, delta)
-    el.scale.y += data.speed * delta / 1000 if el.scale.y < 3
+    el.scale.y += data.speed * delta_seconds if el.scale.y < 3
   end
 end
 

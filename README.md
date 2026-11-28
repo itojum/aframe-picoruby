@@ -187,7 +187,7 @@ class SpinBox < AFrame::Component
   schema speed: 30   # { type: :number, default: 30 } と同じ
 
   def tick(time, delta)
-    el.rotation.y += deg_to_rad(data.speed * delta / 1000)
+    el.rotation.y += deg_to_rad(data.speed * delta_seconds)
   end
 end
 ```
@@ -200,6 +200,7 @@ end
 - `register` より前に書いた要素にも、後から作った要素（`Entity.create(..., spin_box: { speed: 90 })`）にも付きます
 - 上書きできるのは `init` / `update(old_data)` / `tick(time, delta)` / `remove` です。`initialize` は上書きしないでください
 - `el` は要素の `Entity`、`data` は属性を読んだ結果（`data.speed`）、`component` は JS の部品です
+- `tick(time, delta)` の `delta` は A-Frame と同じくミリ秒です。秒あたりの速さで動かすときは `delta_seconds`（`delta / 1000.0` と同じ）を使うと、`/ 1000`（整数の割り算）の書き間違いを避けられます。System でも使えます
 - フックは A-Frame の中から同期で呼ぶので、中で `await` は使えません。例外を出してもコンソールに出すだけです
 - `tick` はフレームごとにまとめて呼びます（`Scene.run` を呼ばなくても動きます。`Scene.on_tick` の処理より先に呼びます）。要素を `pause` している間は呼ばれません
 - `register "spin-box", multiple: true` にすると、1つの要素に `spin-box__fast` / `spin-box__slow` のように複数付けられます（A-Frame の `multiple`）。それぞれが別のインスタンスで、`id` で `__` の後ろ（`"fast"`）を読めます。Ruby からは `spin_box__fast: { speed: 180 }` と書きます
@@ -251,8 +252,8 @@ end
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する / 部品のプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
-| `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `deg_to_rad` / `rad_to_deg` を使う |
-| `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` を使う |
+| `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `deg_to_rad` / `rad_to_deg` を使う |
+| `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` / `delta_seconds` を使う |
 | `X.instances`（X は Component のサブクラス） | その部品の生きているインスタンスの配列（作った順） |
 | `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
 | `AFrame::Grabbable.instances` / `#grab_distance` / `#grab_distance=` / `#following_ray?` / `#grabbed?` | `grab-target` の部品の一覧と、マウスで掴んでいる図形の ray の起点からの距離（負の値は 0 になる） |
