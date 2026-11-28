@@ -59,8 +59,8 @@ VR コントローラーでも掴みたいときは、カメラと同じリグ�
 
 ```ruby
 AFrame::Entity.all("[grab-target]").each do |shape|
-  shape.addEventListener("grab") { |event| puts "grab" }
-  shape.addEventListener("release") { |event| puts "#{shape.position.x}, #{shape.position.y}, #{shape.position.z}" }
+  shape.on(:grab) { puts "grab" }
+  shape.on(:release) { puts "#{shape.position.x}, #{shape.position.y}, #{shape.position.z}" }
 end
 ```
 
@@ -112,6 +112,11 @@ group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなけ�
 - `parent:` には Entity、JS の要素、セレクターの文字列を渡せます。セレクターが見つからなければ例外になり、要素は作りません
 
 - 値は A-Frame の属性の文字列に直して渡します：配列と座標の Hash（`{ x:, y:, z: }`）は `"0 1 0"`、そのほかの Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
+- 省略形：`scale: 0.5` は3軸とも同じ倍率（`"0.5 0.5 0.5"`）にします（そのまま渡すと A-Frame は x だけと読み、`0.5 1 1` になります）。プロパティが複数ある部品に `true` を渡すと、既定値のまま付けます（`swim: true` は `swim=""` と同じ）。プロパティが1つの部品（`visible: true` など）や、知らない名前には `"true"` のまま渡します
+
+  ```ruby
+  AFrame::Entity.create("a-entity", gltf_model: "#whale-shark", scale: 0.5, swim: true)
+  ```
 - Hash の値に `;` が入っていると（`label: { value: "a; b" }`）、`;` が区切りと読まれて切れてしまうので、そのときは文字列にまとめずにプロパティごとに渡します（A-Frame が知っている部品のとき）
 - `entity.set_attribute(:label, :value, "つかんだ！")` のように3つ渡すと、部品のプロパティを1つだけ変えます（ほかのプロパティはそのまま。`;` を含む文字も渡せます）
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じ部品を複数付けるときの `__` はそのまま残します（`animation__spin:`）
@@ -162,6 +167,22 @@ hint.set_attribute(:label, :value, "つかんだ！")   # 文字だけ変える
 - `value` / `color` / `background` / `font` を変えると描き直し、`height` だけなら大きさだけ変えます。要素を消すと、テクスチャなども破棄します
 - 端末に入っているフォントで描くので、ネットにつながっていなくても出せます。Quest のブラウザに日本語フォントがあるか、近づいたときにぼやけないかは、まだ実機で確かめていません
 - `examples/grab/` では、箱の上の札が、掴むと「つかんだ！」、離すと「持てるよ」に変わります（`grab` / `release` イベントを聞いているだけで、部品どうしは直接触っていません）
+
+### イベントを聞く（on / off）
+
+`Entity#on` でイベントを聞きます。イベント名は Symbol でも文字列でもよく、そのまま使います（`:grab`、`"model-loaded"`）。ブロックはイベントを受け取っても、受け取らなくてもかまいません。
+
+```ruby
+listener = shark.on(:grab) { hint.set_attribute(:label, :value, "つかんだ！") }
+shark.on(:release) { |event| p event[:detail][:cursorEl] }
+shark.once("model-loaded") { puts "読み込んだ" }   # 1回だけ
+
+shark.off(listener)   # この listener だけやめる
+```
+
+- `on` / `once` は、聞くのをやめるための値を返します。やめるときは、その値を `off` に渡します。同じイベントを聞いているほかの処理（別の部品など）はそのまま残ります
+- `once` は最初のイベントで聞くのをやめます。それより前なら `off` でやめられます
+- ブロックは、イベントを配り終えた後に呼びます。`preventDefault` などイベントを配っている最中に呼ぶ必要があるときは、`shark.js.addEventListener("click", sync: true) { |event| ... }` を使います
 
 ### A-Frame のプロパティを触る
 
@@ -277,6 +298,7 @@ end
 | `Entity#position` / `#rotation` / `#scale` | `object3D` の `position`（THREE.Vector3）/ `rotation`（THREE.Euler、ラジアン）/ `scale`（THREE.Vector3）をそのまま返す。書き換えると要素が動く（`el.position.x = 1`、`el.rotation.y += 0.1`）。`set_position(x, y, z)` は `position.set(x, y, z)` と同じ |
 | `Entity#visible` / `#visible=` | `object3D.visible` を読み書きする（`el.visible = false` で隠す）。`visible` 属性は書き換えないので、HTML に書いた値はそのまま。毎フレーム切り替えても軽い |
 | `AFrame::Entity.find(selector)` | 最初に見つかった要素を Entity で返す。見つからなければ `nil`（`querySelector` と同じ） |
+| `Entity#on(event) { }` / `#once(event) { }` / `#off(listener)` | イベントを聞く。`on` / `once` は `off` に渡す値を返す。`off` はその処理だけやめる。ブロックの引数（イベント）は省略してよい |
 | `AFrame::Easing.ease_in_out_sine(t)` など | 補間。`linear` と `ease_in_` / `ease_out_` / `ease_in_out_` × `sine` / `quad` / `cubic`。0〜1 を受け取り 0〜1 を返す |
 | `AFrame.random(min, max)` | min 以上 max 未満の小数。部品・System の中では `random(min, max)` |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |

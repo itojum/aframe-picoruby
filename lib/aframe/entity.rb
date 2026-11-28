@@ -119,6 +119,34 @@ module AFrame
       Component.classes.key?(name.split("__").first) && !component?(name)
     end
 
+    # Short forms of a value, by attribute name:
+    #   scale: 0.5   => [0.5, 0.5, 0.5] (A-Frame would read "0.5" as x only)
+    #   swim: true   => "" (the component with its defaults), only for a
+    #                   component with several properties, so a single
+    #                   boolean property (visible: true) keeps its value
+    def self.shorthand(name, value)
+      if name == "scale" && (value.is_a?(Integer) || value.is_a?(Float))
+        [value, value, value]
+      elsif value == true && multi_property_component?(name)
+        ""
+      else
+        value
+      end
+    end
+
+    # A component (Ruby or A-Frame) whose schema has several properties.
+    # Unknown names are not.
+    def self.multi_property_component?(name)
+      base = name.split("__").first
+      klass = Component.classes[base]
+      unless klass.nil?
+        keys = klass.schema.keys.map { |k| k.to_s }
+        return !keys.include?("type") && !keys.include?("default")
+      end
+
+      JS.eval("(c => !!c && !c.isSingleProperty)(AFRAME.components[#{base.inspect}])") ? true : false
+    end
+
     def self.attribute_name(symbol)
       symbol.to_s.split("__").map { |part| part.tr("_", "-") }.join("__")
     end
@@ -141,6 +169,9 @@ module AFrame
     # component (an unknown one would get "[object Object]"), so for a Ruby
     # component still waiting to register, the write waits until it is.
     #
+    # scale: 0.5 sets all three axes, and component: true attaches a
+    # component with several properties with its defaults (see shorthand).
+    #
     # With three arguments, sets one property of a component and leaves the
     # others as they are (any text, ";" included):
     #   hint.set_attribute(:label, :value, "つかんだ！")
@@ -152,6 +183,7 @@ module AFrame
                                        Entity.waiting_component?(name))
         return self
       end
+      value = Entity.shorthand(name, value)
       waiting = Entity.waiting_component?(name)
       if Entity.semicolon_properties?(value) && (waiting || Entity.component?(name))
         properties = {}
@@ -163,6 +195,36 @@ module AFrame
         @js.setAttribute(name, Entity.attribute_value(value))
       end
       self
+    end
+
+    # Listens for event (a Symbol or a String, used as it is:
+    # :grab, "model-loaded") and returns a value to pass to off. The block
+    # may take the event or nothing:
+    #   listener = shark.on(:grab) { hint.set_attribute(:label, :value, "つかんだ！") }
+    #   shark.on(:release) { |event| p event[:detail][:cursorEl] }
+    #   shark.off(listener)
+    # The block runs after the event has been dispatched (it cannot call
+    # preventDefault); use js.addEventListener(name, sync: true) for that.
+    def on(event, &block)
+      raise ArgumentError, "on needs a block" if block.nil?
+
+      listen(event, false, block)
+    end
+
+    # Like on, but stops listening after the first event (the browser's
+    # once, so events already queued do not call it again). The returned
+    # value can be passed to off before then.
+    def once(event, &block)
+      raise ArgumentError, "once needs a block" if block.nil?
+
+      listen(event, true, block)
+    end
+
+    # Stops the listener that on or once returned. Other listeners for the
+    # same event, on this element or elsewhere, keep listening.
+    def off(listener)
+      JS::Object.removeEventListener(listener) unless listener.nil?
+      nil
     end
 
     # Moves child (an Entity or a JS element) under this entity.
@@ -238,6 +300,20 @@ module AFrame
     end
 
     private
+
+    # The bridge names a listener after its block, so each call passes a
+    # new block: the same Proc given twice still gets two listeners that
+    # off can stop one by one. A block takes the event whatever its
+    # parameters (|event = nil| too); only a lambda without parameters,
+    # which would raise, is called without it.
+    def listen(event, once, handler)
+      takes_event = !(handler.lambda? && handler.arity == 0)
+      if once
+        @js.addEventListener(event.to_s, once: true) { |e| takes_event ? handler.call(e) : handler.call }
+      else
+        @js.addEventListener(event.to_s) { |e| takes_event ? handler.call(e) : handler.call }
+      end
+    end
 
     def animation
       @js[:components][:animation]
