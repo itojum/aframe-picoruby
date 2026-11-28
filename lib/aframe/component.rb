@@ -255,6 +255,11 @@ module AFrame
       Scene.delta_seconds
     end
 
+    # A Float from min up to max (AFrame.random).
+    def random(min, max)
+      AFrame.random(min, max)
+    end
+
     # Calls the block once, seconds from now (in the component's time: it
     # stops while paused). Returns an AFrame::Timer; timer.cancel stops it.
     #   @timer = after(random(3, 11)) { start_crossing }
