@@ -1,7 +1,7 @@
 # aframe_picoruby
 
 [A-Frame](https://aframe.io/) のシーンを [PicoRuby.wasm](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm) の Ruby で操作するための小さなライブラリです。
-マウスで図形を掴んで動かす処理（`examples/grab/`）を、JavaScript の A-Frame コンポーネントを書かずに Ruby だけで実装できます。
+マウスで図形を掴んで動かす処理（[`examples/grab/`](examples/grab/)）を、JavaScript の A-Frame コンポーネントを書かずに Ruby だけで実装できます。
 
 ## クイックスタート
 
@@ -48,10 +48,10 @@ AFrame::Scene.run            # フレームループ（戻ってこない）
 | 図形をマウスや VR コントローラーで掴んで動かす | [`grab-target` / `camera-lock`](docs/reference.md#掴んで動かす) |
 | Ruby から要素を作る | [`AFrame::Entity.create` / `AFrame.scene`](docs/reference.md#要素を作る) |
 | 日本語の文字を出す | [`label`](docs/reference.md#日本語の文字を出す) |
-| イベントを聞く | [`on` / `once` / `off`](docs/reference.md#イベントを聞く) |
+| イベントを受け取る | [`on` / `once` / `off`](docs/reference.md#イベントを受け取る) |
 | A-Frame のプロパティやメソッドをそのまま使う | [`Entity` から JS へ渡す](docs/reference.md#a-frame-のプロパティを触る) |
-| 部品（コンポーネント）を Ruby で書く | [`AFrame::Component`](docs/reference.md#部品を作る) |
-| 部品の中で「n 秒後」「n 秒ごと」に処理する | [`after` / `every`](docs/reference.md#部品の中で待つ) |
+| コンポーネントを Ruby で書く | [`AFrame::Component`](docs/reference.md#コンポーネントを作る) |
+| コンポーネントの中で「n 秒後」「n 秒ごと」に処理する | [`after` / `every`](docs/reference.md#コンポーネントの中で待つ) |
 | シーン全体を見る処理（System）を Ruby で書く | [`AFrame::System`](docs/reference.md#シーン全体を見る処理を作る) |
 | 補間と乱数を使う | [`AFrame::Easing` / `AFrame.random`](docs/reference.md#補間と乱数) |
 
@@ -61,10 +61,10 @@ AFrame::Scene.run            # フレームループ（戻ってこない）
 
 | デモ | 内容 |
 |---|---|
-| `examples/grab/` | マウスや VR コントローラーで図形を掴んで動かす。掴むと札（`label`）の文字が変わる |
-| `examples/spin/` | Ruby で定義した部品で図形を回す |
-| `examples/garden/` | Ruby で定義した System で花を植えて間引く。花は easing で伸びる |
-| `examples/scene/` | `AFrame.scene` でシーンを組み立てる |
+| [`examples/grab/`](examples/grab/) | マウスや VR コントローラーで図形を掴んで動かす。掴むと札（`label`）の文字が変わる |
+| [`examples/spin/`](examples/spin/) | Ruby で定義したコンポーネントで図形を回す |
+| [`examples/garden/`](examples/garden/) | Ruby で定義した System で花を植えて間引く。花は easing で伸びる |
+| [`examples/scene/`](examples/scene/) | `AFrame.scene` でシーンを組み立てる |
 
 ## 使っているもの
 
@@ -92,19 +92,19 @@ lib/
     ├── easing.rb        … 補間（AFrame::Easing）と乱数（AFrame.random）
     ├── scene.rb         … シーンの読み込み待ちとフレームループ
     ├── entity.rb        … A-Frame 要素の薄いラッパー
-    ├── component.rb     … Ruby で書く A-Frame の部品
-    ├── timer.rb         … 部品の after / every のタイマー（AFrame::Timer）
+    ├── component.rb     … Ruby で書く A-Frame のコンポーネント
+    ├── timer.rb         … コンポーネントの after / every のタイマー（AFrame::Timer）
     ├── system.rb        … Ruby で書く A-Frame の System
     ├── builder.rb       … AFrame.scene（ブロックで要素を作る）
     ├── camera_lock.rb   … 掴んでいる間の視点固定（camera-lock の System）
-    ├── grabbable.rb     … 図形を掴んで動かす部品（grab-target）
-    └── label.rb         … 日本語の文字を出す部品（label）
+    ├── grabbable.rb     … 図形を掴んで動かすコンポーネント（grab-target）
+    └── label.rb         … 日本語の文字を出すコンポーネント（label）
 docs/
 └── reference.md         … 使い方と API の一覧
 examples/
 ├── index.html
 ├── grab/                … マウスで図形を掴んで動かすデモ
-├── spin/                … Ruby で定義した部品で図形を回すデモ
+├── spin/                … Ruby で定義したコンポーネントで図形を回すデモ
 ├── garden/              … Ruby で定義した System で花を植えて間引くデモ
 └── scene/               … AFrame.scene でシーンを組み立てるデモ
 ```
