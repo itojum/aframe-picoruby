@@ -12,7 +12,7 @@ AFrame::Entity.all("[grab-target]").each do |shape|
   end
 end
 
-# 箱の上の札（label 部品）の文字を、掴んだとき・離したときに変える
+# 箱の上の札（label コンポーネント）の文字を、掴んだとき・離したときに変える
 box = AFrame::Entity.find("a-box[grab-target]")
 hint = AFrame::Entity.find("#box-hint")
 box.on(:grab) { hint.set_attribute(:label, :value, "つかんだ！") }

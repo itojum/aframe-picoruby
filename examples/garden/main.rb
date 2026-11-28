@@ -1,6 +1,6 @@
 require "aframe"
 
-# 花1本ずつに付く部品：duration 秒かけて height まで伸びる
+# 花1本ずつに付くコンポーネント：duration 秒かけて height まで伸びる
 # （初めは速く、伸びきる前にゆっくりになる）
 class Flower < AFrame::Component
   register "flower"
@@ -35,7 +35,7 @@ class Garden < AFrame::System
     return if @elapsed < data.interval
 
     @elapsed = 0
-    # 植えた花の部品が動き出すのは次の番なので、先に1本分あけておく
+    # 植えた花のコンポーネントが動き出すのは次の番なので、先に1本分あけておく
     while !Flower.instances.empty? && Flower.instances.size >= data.max
       Flower.instances.first.el.js.remove
     end
