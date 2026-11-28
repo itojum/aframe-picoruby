@@ -19,10 +19,9 @@ AFrame.scene do
   entity position: [0, 1.6, -3] do
     box color: "#4CC3D9", spin_box: { speed: 45 }
     entity spin_box: { speed: -30 } do
-      6.times do |i|
-        angle = Math::PI * 2 * i / 6
-        sphere position: [Math.cos(angle) * 1.5, 0, Math.sin(angle) * 1.5],
-               radius: 0.2, color: colors[i]
+      # around で、半径 1.5 の輪の上に6つ並べる（i は 0〜5）
+      around 6, radius: 1.5 do |i|
+        sphere radius: 0.2, color: colors[i]
       end
     end
   end

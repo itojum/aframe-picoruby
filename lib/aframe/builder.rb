@@ -59,6 +59,52 @@ module AFrame
       Builder.new(entity).instance_eval(&block) if block
       entity
     end
+
+    # Makes count a-entity elements evenly around axis (:x, :y or :z) and
+    # runs the block in each, with its number (0, 1, ...). Returns them.
+    #   around 6, radius: 1.5 do |i|
+    #     sphere radius: 0.2, color: colors[i]
+    #   end
+    # Element i is turned 360 * i / count degrees about axis and placed
+    # radius away in the direction its +x (+y for axis: :x) then points,
+    # so a shape that starts at the origin and goes along +x points out.
+    # face: false keeps them unturned (only the positions make the ring).
+    def around(count, radius: 0, axis: :y, face: true, &block)
+      raise ArgumentError, "around needs a block" if block.nil?
+
+      axis = axis.to_sym
+      raise ArgumentError, "axis is :x, :y or :z, not #{axis.inspect}" unless [:x, :y, :z].include?(axis)
+
+      (0...count).map do |i|
+        degrees = 360.0 * i / count
+        c = round_ring(Math.cos(degrees * Math::PI / 180) * radius)
+        s = round_ring(Math.sin(degrees * Math::PI / 180) * radius)
+        if axis == :y
+          position = [c, 0, -s]
+          rotation = [0, degrees, 0]
+        elsif axis == :z
+          position = [c, s, 0]
+          rotation = [0, 0, degrees]
+        else
+          position = [0, c, s]
+          rotation = [degrees, 0, 0]
+        end
+        attributes = face ? { position: position, rotation: rotation } : { position: position }
+        entity = Entity.create("a-entity", parent: @parent, **attributes)
+        @created << entity
+        Builder.new(entity).instance_exec(i, &block)
+        entity
+      end
+    end
+
+    private
+
+    # Drops float noise (sin of 180 degrees is 1.2e-16) from the numbers
+    # written into the attributes.
+    def round_ring(value)
+      rounded = (value * 1_000_000).round / 1_000_000.0
+      rounded == 0 ? 0 : rounded
+    end
   end
 
   # Runs the block in a Builder and returns the elements it made at the
