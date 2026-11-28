@@ -12,11 +12,22 @@ AFrame::Entity.all("[grab-target]").each do |shape|
   end
 end
 
-# 箱の上の札（label コンポーネント）の文字を、掴んだとき・離したときに変える
-box = AFrame::Entity.find("a-box[grab-target]")
-hint = AFrame::Entity.find("#box-hint")
-box.on(:grab) { hint.set_attribute(:label, :value, "つかんだ！") }
-box.on(:release) { hint.set_attribute(:label, :value, "持てるよ") }
+# 箱の上の札（label コンポーネント）の文字を、掴んだとき・離したときに変える。
+# 受け取るイベントはクラスに on で書く（付けたときにつながり、外すと外れる）
+class GrabHint < AFrame::Component
+  register "grab-hint"
+  schema hint: "", grabbed: "つかんだ！", idle: "持てるよ"
+
+  on(:grab) { show data.grabbed }
+  on(:release) { show data.idle }
+
+  private
+
+  def show(text)
+    hint = AFrame::Entity.find(data.hint)
+    hint&.set_attribute(:label, :value, text)
+  end
+end
 
 # マウスで掴んでいる間は、ホイールで図形を近づける・遠ざける
 JS.global.addEventListener("wheel") do |event|

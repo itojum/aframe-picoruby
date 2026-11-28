@@ -27,8 +27,8 @@ module AFrame
           name = method_name(tag_name)
           next if name.empty? || probe.respond_to?(name.to_sym, true)
 
-          define_method(name.to_sym) do |**attributes, &block|
-            tag(tag_name, **attributes, &block)
+          define_method(name.to_sym) do |*components, **attributes, &block|
+            tag(tag_name, *components, **attributes, &block)
           end
         end
       end
@@ -51,8 +51,10 @@ module AFrame
 
     # Creates any tag, for those not in the list:
     #   tag "a-ocean", depth: 50
-    def tag(name, **attributes, &block)
-      entity = Entity.create(name, parent: @parent, **attributes)
+    # Symbols before the attributes attach components with their defaults,
+    # as in Entity.create (entity :swim, gltf_model: "#shark").
+    def tag(name, *components, **attributes, &block)
+      entity = Entity.create(name, *components, parent: @parent, **attributes)
       @created << entity
       Builder.new(entity).instance_eval(&block) if block
       entity

@@ -19,11 +19,22 @@ module AFrame
     #   AFrame::Entity.create("a-box", position: [0, 1, -3], color: "tomato")
     #   AFrame::Entity.create("a-entity", parent: "#school")
     #
+    # Symbols (or Strings) before the attributes attach those components
+    # with their defaults (an empty attribute, as <a-entity swim>). As with
+    # attribute names, a Symbol's _ becomes - and a String is used as it is:
+    #   AFrame::Entity.create("a-entity", :swim, :grab_target, gltf_model: "#shark")
+    #
     # The element is usable right away; A-Frame finishes loading it (sets
     # hasLoaded) on a later turn of the event loop.
-    def self.create(tag, parent: nil, **attributes)
+    def self.create(tag, *components, parent: nil, **attributes)
+      components.each do |component|
+        next if component.is_a?(Symbol) || component.is_a?(String)
+
+        raise ArgumentError, "components to attach with their defaults are Symbols, not #{component.inspect}"
+      end
       parent_js = parent_element(parent)
       entity = new(JS.document.createElement(tag))
+      components.each { |name| entity.set_attribute(name, "") }
       attributes.each { |name, value| entity.set_attribute(name, value) }
 
       parent_js.appendChild(entity.js)
@@ -124,32 +135,14 @@ module AFrame
       Component.classes.key?(name.split("__").first) && !component?(name)
     end
 
-    # Short forms of a value, by attribute name:
+    # Short form of a value, by attribute name:
     #   scale: 0.5   => [0.5, 0.5, 0.5] (A-Frame would read "0.5" as x only)
-    #   swim: true   => "" (the component with its defaults), only for a
-    #                   component with several properties, so a single
-    #                   boolean property (visible: true) keeps its value
     def self.shorthand(name, value)
       if name == "scale" && (value.is_a?(Integer) || value.is_a?(Float))
         [value, value, value]
-      elsif value == true && multi_property_component?(name)
-        ""
       else
         value
       end
-    end
-
-    # A component (Ruby or A-Frame) whose schema has several properties.
-    # Unknown names are not.
-    def self.multi_property_component?(name)
-      base = name.split("__").first
-      klass = Component.classes[base]
-      unless klass.nil?
-        keys = klass.schema.keys.map { |k| k.to_s }
-        return !keys.include?("type") && !keys.include?("default")
-      end
-
-      JS.eval("(c => !!c && !c.isSingleProperty)(AFRAME.components[#{base.inspect}])") ? true : false
     end
 
     def self.attribute_name(symbol)
@@ -179,8 +172,8 @@ module AFrame
     # does for a registered component). Strings for a waiting component
     # wait as well, so the writes keep their order.
     #
-    # scale: 0.5 sets all three axes, and component: true attaches a
-    # component with several properties with its defaults (see shorthand).
+    # scale: 0.5 sets all three axes (see shorthand). true is "true"; a
+    # component with its defaults is "" (or a Symbol in Entity.create).
     #
     # With three arguments, sets one property of a component and leaves the
     # others as they are (any text, ";" included):
