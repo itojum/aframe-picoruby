@@ -13,7 +13,7 @@ aframe_picoruby の使い方と API をまとめたページです。はじめ�
 - [コンポーネントを作る](#コンポーネントを作る)：`AFrame::Component`
 - [コンポーネントの中で待つ](#コンポーネントの中で待つ)：`after` / `every`
 - [シーン全体を見る処理を作る](#シーン全体を見る処理を作る)：`AFrame::System`
-- [補間と乱数](#補間と乱数)：`AFrame::Easing` / `AFrame.random`
+- [補間と乱数](#補間と乱数)：`AFrame::Easing` / `AFrame.random`、animation を秒で書く `AFrame.animation`
 - [毎フレームの処理をどこに書くか](#毎フレームの処理をどこに書くか)
 - [API 一覧](#api-一覧)
 
@@ -380,8 +380,33 @@ end
 - `AFrame::Easing` には `linear` と、`ease_in_` / `ease_out_` / `ease_in_out_` に `sine` / `quad` / `cubic` を付けたものがあります。0 から 1 の `t` を渡すと、0 から 1 の値を返します。名前は A-Frame の `animation` コンポーネントの `easing`（`easeInOutSine`）に合わせています
 - 式は広く使われているもの（Penner の式）です。A-Frame の `animation` は同じ名前の曲線を近似して描くので、途中で最大 0.035 ほど違います（始めと終わりは同じ）
 - 設定から選ばせるときは `AFrame::Easing.send(data.easing, t)` と書けます（`schema easing: "ease_out_cubic"`）
-- `AFrame.random(min, max)` は min 以上 max 未満の小数を返します。コンポーネントと System の中では `random(min, max)` と書けます。PicoRuby.wasm の `rand` は小数や範囲を受け付けない（`rand(3.0)` はいつも `0.0`、`rand(3..11)` はエラー）ので、こちらを使ってください
+- `AFrame.random(min, max)` は min 以上 max 未満の小数を返します。コンポーネントと System と `AFrame.scene` のブロックの中では `random(min, max)` と書けます。PicoRuby.wasm の `rand` は小数や範囲を受け付けない（`rand(3.0)` はいつも `0.0`、`rand(3..11)` はエラー）ので、こちらを使ってください
 - [`examples/garden/`](../examples/garden/) では、花が `ease_out_cubic` で伸び、伸びる高さと時間を `random` で決めています
+
+### A-Frame の animation を秒で書く（AFrame.animation）
+
+決まった動きを繰り返すだけなら、A-Frame の `animation` コンポーネントに任せると、Ruby の処理は要りません。`AFrame.animation` は、その値を秒と `AFrame::Easing` と同じ名前で作ります。
+
+```ruby
+AFrame.scene do
+  sway = AFrame.animation(:rotation, to: [3, 0, -4], dur: random(2.5, 4),
+                          alternate: true, easing: :ease_in_out_sine)
+  entity animation: sway do
+    box width: 0.8, position: [0.4, 0, 0]
+  end
+
+  # 同じ要素に複数付けるときは、属性の名前を animation__名前 にする
+  box animation__spin: AFrame.animation(:rotation, to: [0, 360, 0], dur: 4, loop: true, easing: :linear)
+end
+```
+
+- 最初の引数は動かすプロパティです（`:rotation` / `:position` / `:scale` / `"material.color"` など）。`rotation` は属性と同じく度です
+- `to:` / `from:` は属性と同じ形（`[x, y, z]`、数、色の文字列）で渡します
+- `dur:` / `delay:` は秒です（小数も可）。ミリ秒に直して渡します
+- `easing:` は `AFrame::Easing` と同じ名前の Symbol です（`:ease_in_out_sine` → `easeInOutSine`）。A-Frame にしかない曲線（`easeOutElastic` など）は、Symbol（`:ease_out_elastic`）か A-Frame の名前の文字列で渡します
+- `loop:` は `true` か回数です。`alternate: true` は行って戻る動き（`dir: alternate`）で、`loop:` を書かなければ繰り返します
+- ほかのキーワードは、名前を A-Frame の形（`start_events:` → `startEvents`）に直してそのまま渡します
+- 戻り値は Hash なので、`Entity.create` や `set_attribute` にも渡せます
 
 ## 毎フレームの処理をどこに書くか
 
@@ -430,7 +455,8 @@ end
 | `Entity#on(event) { }` / `#once(event) { }` / `#off(listener)` | イベントを受け取る。`on` / `once` は `off` に渡す値を返す。`off` はその処理だけやめる。ブロックの引数（イベント）は省略してよい |
 | `Component#after(seconds) { }` / `#every(seconds) { }` | コンポーネントの時間（一時停止で止まる）で、一度だけ / くり返しブロックを呼ぶ。`AFrame::Timer` を返し、`timer.cancel` で取り消す。コンポーネントが消えると捨てる |
 | `AFrame::Easing.ease_in_out_sine(t)` など | 補間。`linear` と `ease_in_` / `ease_out_` / `ease_in_out_` × `sine` / `quad` / `cubic`。0〜1 を受け取り 0〜1 を返す |
-| `AFrame.random(min, max)` | min 以上 max 未満の小数。コンポーネント・System の中では `random(min, max)` |
+| `AFrame.random(min, max)` | min 以上 max 未満の小数。コンポーネント・System・`AFrame.scene` の中では `random(min, max)` |
+| `AFrame.animation(property, to:, from:, dur:, delay:, easing:, loop:, alternate:, **others)` | A-Frame の `animation` コンポーネントの値を作る。時間は秒、`easing` は `AFrame::Easing` と同じ名前の Symbol。`alternate: true` は往復して繰り返す |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, *components, parent: nil, **attributes)` | 要素を作り（`components` の Symbol は既定値のまま付けるコンポーネント）、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する（コンポーネントに Hash を渡すと、渡したプロパティだけ変えてほかは残す）/ コンポーネントのプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
