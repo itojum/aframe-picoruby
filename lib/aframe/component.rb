@@ -233,6 +233,13 @@ module AFrame
 
     def remove; end
 
+    # This frame's delta in seconds (delta / 1000.0), for speeds per second
+    # in tick:
+    #   el.position.x += data.speed * delta_seconds
+    def delta_seconds
+      Scene.delta_seconds
+    end
+
     # A Float from min up to max (AFrame.random).
     def random(min, max)
       AFrame.random(min, max)

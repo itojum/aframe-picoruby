@@ -14,7 +14,7 @@ class Flower < AFrame::Component
   def tick(time, delta)
     return if @t >= 1
 
-    @t = [@t + delta / 1000.0 / data.duration, 1.0].min
+    @t = [@t + delta_seconds / data.duration, 1.0].min
     el.scale.y = @start + (data.height - @start) * AFrame::Easing.ease_out_cubic(@t)
   end
 end

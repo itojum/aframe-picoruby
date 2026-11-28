@@ -197,6 +197,19 @@ module AFrame
       @js[:object3D][:scale]
     end
 
+    # object3D.visible: whether the element (and its children) is drawn.
+    #   el.visible = false
+    # It writes object3D directly, which is light enough for every frame;
+    # the visible attribute (set_attribute(:visible, false)) is not changed,
+    # so the HTML still shows the value it was given.
+    def visible
+      @js[:object3D][:visible] ? true : false
+    end
+
+    def visible=(value)
+      @js[:object3D][:visible] = value ? true : false
+    end
+
     # Same as position.set(x, y, z).
     def set_position(x, y, z)
       @js[:object3D][:position].set(x, y, z)
