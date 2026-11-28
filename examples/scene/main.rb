@@ -2,7 +2,7 @@ require "aframe"
 
 # <a-box spin-box="speed: 90"> を、毎秒 speed 度ずつ Y 軸で回す
 class SpinBox < AFrame::Component
-  register "spin-box"
+  register                       # "spin-box"
   schema speed: 30
 
   def tick(time, delta)

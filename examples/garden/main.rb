@@ -3,7 +3,7 @@ require "aframe"
 # 花1本ずつに付くコンポーネント：duration 秒かけて height まで伸びる
 # （初めは速く、伸びきる前にゆっくりになる）
 class Flower < AFrame::Component
-  register "flower"
+  register                       # "flower"
   schema height: 3, duration: 4 # 伸びきったときの縦の倍率と、かかる秒数
 
   def init
@@ -22,7 +22,7 @@ end
 # シーンに1つの System：1秒ごとに花を植え、max 本を超えたら古い花から抜く
 # （<a-scene garden="max: 8"> で本数を変えられる）
 class Garden < AFrame::System
-  register "garden"
+  register                       # "garden"
   schema max: 8, interval: 1000
 
   def init

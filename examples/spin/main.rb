@@ -3,7 +3,7 @@ require "aframe"
 # <a-box spin-box="speed: 90"> を、毎秒 speed 度ずつ axis（既定は Y）軸で回す。
 # multiple: true なので、spin-box__x のように1つの要素へ複数付けられる
 class SpinBox < AFrame::Component
-  register "spin-box", multiple: true
+  register multiple: true        # "spin-box"
   schema speed: 30, axis: "y"
 
   def tick(time, delta)
