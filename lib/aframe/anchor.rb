@@ -21,7 +21,7 @@ module AFrame
     schema type: :string, default: "center",
            oneOf: ["center", "bottom", "top", "left", "right", "front", "back"]
 
-    # Works out the box of mesh (and its children) in mesh's own space
+    # Works out the box of mesh (and its children) in the element's space
     # and moves mesh so that the chosen side is at the origin. With no
     # mesh yet, it waits for one and returns false.
     SOURCE = <<~JS
@@ -43,24 +43,32 @@ module AFrame
           }
           return false;
         }
-        mesh.position.set(0, 0, 0);
+        // The mesh's own position (a model may have one) is kept and the
+        // shift is added to it; a new mesh gets a new base.
+        if (el.__aframe_anchorMesh !== mesh) {
+          el.__aframe_anchorMesh = mesh;
+          el.__aframe_anchorBase = mesh.position.clone();
+        }
+        mesh.position.copy(el.__aframe_anchorBase);
         if (side === "center") return true;
-        mesh.updateMatrixWorld(true);
-        const toMesh = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+        // The box in the element's space (mesh.position's space), so the
+        // mesh's own rotation and scale count.
+        el.object3D.updateMatrixWorld(true);
+        const toEl = new THREE.Matrix4().copy(el.object3D.matrixWorld).invert();
         const box = new THREE.Box3();
         const part = new THREE.Box3();
         const matrix = new THREE.Matrix4();
         mesh.traverse((o) => {
           if (!o.geometry) return;
           if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-          matrix.multiplyMatrices(toMesh, o.matrixWorld);
+          matrix.multiplyMatrices(toEl, o.matrixWorld);
           box.union(part.copy(o.geometry.boundingBox).applyMatrix4(matrix));
         });
         if (box.isEmpty()) return true;
         const at = { bottom: ["y", box.min.y], top: ["y", box.max.y],
                      left: ["x", box.min.x], right: ["x", box.max.x],
                      back: ["z", box.min.z], front: ["z", box.max.z] }[side];
-        if (at) mesh.position[at[0]] = -at[1];
+        if (at) mesh.position[at[0]] -= at[1];
         return true;
       };
     JS
@@ -80,6 +88,13 @@ module AFrame
 
     def remove
       JS.global.__aframe_anchor(el.js, "center")
+    end
+
+    # The on handlers miss what changed while paused, so work it out again
+    # when the element plays.
+    def connect_events
+      super
+      apply
     end
 
     private
