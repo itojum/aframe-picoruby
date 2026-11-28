@@ -119,6 +119,34 @@ module AFrame
       Component.classes.key?(name.split("__").first) && !component?(name)
     end
 
+    # Short forms of a value, by attribute name:
+    #   scale: 0.5   => [0.5, 0.5, 0.5] (A-Frame would read "0.5" as x only)
+    #   swim: true   => "" (the component with its defaults), only for a
+    #                   component with several properties, so a single
+    #                   boolean property (visible: true) keeps its value
+    def self.shorthand(name, value)
+      if name == "scale" && (value.is_a?(Integer) || value.is_a?(Float))
+        [value, value, value]
+      elsif value == true && multi_property_component?(name)
+        ""
+      else
+        value
+      end
+    end
+
+    # A component (Ruby or A-Frame) whose schema has several properties.
+    # Unknown names are not.
+    def self.multi_property_component?(name)
+      base = name.split("__").first
+      klass = Component.classes[base]
+      unless klass.nil?
+        keys = klass.schema.keys.map { |k| k.to_s }
+        return !keys.include?("type") && !keys.include?("default")
+      end
+
+      JS.eval("(c => !!c && !c.isSingleProperty)(AFRAME.components[#{base.inspect}])") ? true : false
+    end
+
     def self.attribute_name(symbol)
       symbol.to_s.split("__").map { |part| part.tr("_", "-") }.join("__")
     end
@@ -141,6 +169,9 @@ module AFrame
     # component (an unknown one would get "[object Object]"), so for a Ruby
     # component still waiting to register, the write waits until it is.
     #
+    # scale: 0.5 sets all three axes, and component: true attaches a
+    # component with several properties with its defaults (see shorthand).
+    #
     # With three arguments, sets one property of a component and leaves the
     # others as they are (any text, ";" included):
     #   hint.set_attribute(:label, :value, "つかんだ！")
@@ -152,6 +183,7 @@ module AFrame
                                        Entity.waiting_component?(name))
         return self
       end
+      value = Entity.shorthand(name, value)
       waiting = Entity.waiting_component?(name)
       if Entity.semicolon_properties?(value) && (waiting || Entity.component?(name))
         properties = {}
