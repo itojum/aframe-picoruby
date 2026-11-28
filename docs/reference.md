@@ -5,7 +5,7 @@ aframe_picoruby の使い方と API をまとめたページです。はじめ�
 ## 目次
 
 - [掴んで動かす](#掴んで動かす)：`grab-target` と `camera-lock`
-- [要素を作る](#要素を作る)：`Entity.create` と `AFrame.scene`、部品を作る `AFrame.part`
+- [要素を作る](#要素を作る)：`Entity.create` と `AFrame.scene`、部品を作る `AFrame.part`、輪に並べる `around`
 - [位置・回転・大きさを変える](#位置回転大きさを変える)：回転の単位（度とラジアン）
 - [日本語の文字を出す](#日本語の文字を出す)：`label`
 - [イベントを受け取る](#イベントを受け取る)：`on` / `once` / `off`、コンポーネントのクラスに書く `on`
@@ -179,6 +179,29 @@ end
   end
   ```
 - タグや Builder のメソッド（`box` / `tag` / `children` など）と同じ名前は `ArgumentError` になります。同じ名前の部品は定義し直せます
+
+### 輪の形に並べる（around）
+
+`around` で、同じものを軸のまわりに等間隔に並べられます（[`examples/scene/`](../examples/scene/)）。
+
+```ruby
+AFrame.scene do
+  entity position: [0, 1.6, -3] do
+    around 6, radius: 1.5 do |i|          # i は 0〜5
+      sphere radius: 0.2, color: colors[i]
+    end
+  end
+
+  around 8 do                              # radius を省くと、その場で向きだけ変える
+    box width: 0.8, height: 0.05, depth: 0.2, position: [0.4, 0, 0]   # 8方向に伸びる板
+  end
+end
+```
+
+- `around(count, radius: 0, axis: :y, face: true)` は、`a-entity` を `count` 個作り、それぞれの中でブロックを動かします。ブロックには番号（0 から）が渡ります。作った `a-entity` の配列を返します
+- `i` 番目は、軸のまわりに `360 * i / count` 度回し、その向きに `radius` だけ離して置きます。回したあとの +x の向き（`axis: :x` のときは +y）が外向きなので、原点から +x へ伸びる形を置くと、外へ向かって並びます
+- `axis:` は `:x` / `:y` / `:z` です。`face: false` にすると回さずに、位置だけを輪にします
+- 始まりの角度や、輪の一部だけに並べる指定はまだありません
 
 ## 位置・回転・大きさを変える
 
@@ -471,6 +494,7 @@ end
 | `AFrame.random(min, max)` | min 以上 max 未満の小数。コンポーネント・System の中では `random(min, max)` |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame.part(name) { \|keywords\| ... }` | `AFrame.scene` の中で呼べる部品を作る。呼ぶと `a-entity` を作ってブロックを動かす。コンポーネント名と `id` / `class` / `mixin` のキーワードは外側の `a-entity` に、それ以外はブロックに渡す。`children` で呼び出し側のブロックを置く |
+| `around(count, radius: 0, axis: :y, face: true) { \|i\| ... }`（`AFrame.scene` の中） | `a-entity` を軸のまわりに等間隔に `count` 個作り、それぞれの中でブロックを動かす。`i` 番目は `360 * i / count` 度回して `radius` 離す。作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, *components, parent: nil, **attributes)` | 要素を作り（`components` の Symbol は既定値のまま付けるコンポーネント）、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する（コンポーネントに Hash を渡すと、渡したプロパティだけ変えてほかは残す）/ コンポーネントのプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name = nil, multiple: false)`（名前を省略するとクラス名から） / `schema(hash)` / `on(event) { \|event\| ... }` | Ruby で A-Frame のコンポーネントを定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `random` / `after` / `every` / `deg_to_rad` / `rad_to_deg` を使う |
