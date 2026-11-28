@@ -104,6 +104,20 @@ group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなけ�
 - Symbol の属性名の `_` は `-` に直します（`look_controls:` → `look-controls`）。同じコンポーネントを複数付けるときの `__` はそのまま残します（`animation__spin:`）
 - 作った直後から使えます。A-Frame の読み込みが終わる（`hasLoaded` が true になる）のは、イベントループの次の番です
 
+### 作った要素を書き換える
+
+`set_attribute` でコンポーネントのプロパティを書き換えるときは、変えたいプロパティだけを Hash で渡します。渡さなかったプロパティは、そのまま残ります（A-Frame の `setAttribute` にオブジェクトを渡したときと同じです）。
+
+```ruby
+hint.set_attribute(:label, value: "つかんだ！")                     # value だけ変える
+hint.set_attribute(:label, value: "つかんだ！", color: "#ffeeaa")   # 2つ変える
+hint.set_attribute(:label, :value, "つかんだ！")                    # 1つだけなら3つ渡す形でもよい
+```
+
+- 2つ以上変えるときも、呼び出しは1回で済みます（コンポーネントの `update` も1回だけ呼ばれます）
+- `;` を含む値もそのまま渡せます（`value: "a; b"`）
+- Ruby で書いたコンポーネントでも同じです
+
 ### ブロックでまとめて作る（AFrame.scene）
 
 ```ruby
@@ -349,7 +363,7 @@ end
 | `AFrame.random(min, max)` | min 以上 max 未満の小数。コンポーネント・System の中では `random(min, max)` |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
-| `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する / コンポーネントのプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
+| `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する（コンポーネントに Hash を渡すと、渡したプロパティだけ変えてほかは残す）/ コンポーネントのプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame のコンポーネントを定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `random` / `after` / `every` / `deg_to_rad` / `rad_to_deg` を使う |
 | `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` / `delta_seconds` / `random` を使う |
 | `X.instances`（X は Component のサブクラス） | そのコンポーネントの生きているインスタンスの配列（作った順） |
