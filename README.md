@@ -226,6 +226,39 @@ end
 - `tick` はフレームごとにまとめて呼びます（`Scene.run` を呼ばなくても動きます。`Scene.on_tick` の処理より先に呼びます）。要素を `pause` している間は呼ばれません
 - `register "spin-box", multiple: true` にすると、1つの要素に `spin-box__fast` / `spin-box__slow` のように複数付けられます（A-Frame の `multiple`）。それぞれが別のインスタンスで、`id` で `__` の後ろ（`"fast"`）を読めます。Ruby からは `spin_box__fast: { speed: 180 }` と書きます
 
+### 部品の中で待つ（after / every）
+
+「n 秒たったら〜する」「n 秒ごとに〜する」は、部品の `after` / `every` で書けます。
+
+```ruby
+class Crosser < AFrame::Component
+  register "crosser"
+
+  def init
+    @blink = every(0.5) { el.visible = !el.visible }   # 0.5 秒ごと
+  end
+
+  def rest
+    el.visible = false
+    @timer = after(random(3, 11)) { start_crossing }  # 一度だけ
+  end
+
+  def start_crossing
+    el.visible = true
+  end
+
+  def stop_blinking
+    @blink.cancel
+  end
+end
+```
+
+- 時間は部品の `tick` と同じく A-Frame のフレームで進みます（`setTimeout` は使いません）。要素やシーンを `pause` している間は止まり、VR 中も同じように進みます。`tick` を書いていない部品でも動きます
+- 部品が消えると（要素を消す、属性を外す）、残っているタイマーは捨てます
+- 戻り値（`AFrame::Timer`）の `cancel` で取り消せます
+- ブロックは、そのフレームの `tick` の前に呼びます。`every` は1フレームに1回までで、重いフレームなどで間に合わなかった分は飛ばします
+- ブロックの中で例外が出てもコンソールに出すだけで、`every` は続きます
+
 ### シーン全体を見る処理を作る（AFrame::System）
 
 部品が要素1つずつに付くのに対して、System はシーンに1つだけあり、全体を見る処理を書けます（`examples/garden/`）。
@@ -299,12 +332,13 @@ end
 | `Entity#visible` / `#visible=` | `object3D.visible` を読み書きする（`el.visible = false` で隠す）。`visible` 属性は書き換えないので、HTML に書いた値はそのまま。毎フレーム切り替えても軽い |
 | `AFrame::Entity.find(selector)` | 最初に見つかった要素を Entity で返す。見つからなければ `nil`（`querySelector` と同じ） |
 | `Entity#on(event) { }` / `#once(event) { }` / `#off(listener)` | イベントを聞く。`on` / `once` は `off` に渡す値を返す。`off` はその処理だけやめる。ブロックの引数（イベント）は省略してよい |
+| `Component#after(seconds) { }` / `#every(seconds) { }` | 部品の時間（一時停止で止まる）で、一度だけ / くり返しブロックを呼ぶ。`AFrame::Timer` を返し、`timer.cancel` で取り消す。部品が消えると捨てる |
 | `AFrame::Easing.ease_in_out_sine(t)` など | 補間。`linear` と `ease_in_` / `ease_out_` / `ease_in_out_` × `sine` / `quad` / `cubic`。0〜1 を受け取り 0〜1 を返す |
 | `AFrame.random(min, max)` | min 以上 max 未満の小数。部品・System の中では `random(min, max)` |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
 | `AFrame::Entity.create(tag, parent: nil, **attributes)` | 要素を作り、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する / 部品のプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
-| `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `random` / `deg_to_rad` / `rad_to_deg` を使う |
+| `class X < AFrame::Component` / `register(name, multiple: false)` / `schema(hash)` | Ruby で A-Frame の部品を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `random` / `after` / `every` / `deg_to_rad` / `rad_to_deg` を使う |
 | `class X < AFrame::System` / `register(name)` / `schema(hash)` | Ruby で A-Frame の System を定義する。`init` / `update(old_data)` / `tick(time, delta)` / `pause` / `play` を上書きし、`el`（a-scene）/ `data` / `delta_seconds` / `random` を使う |
 | `X.instances`（X は Component のサブクラス） | その部品の生きているインスタンスの配列（作った順） |
 | `grab-target` 属性（`AFrame::Grabbable`） | 付けた要素をマウスや VR コントローラー（`laser-controls` など）で掴んで動かせるようにする。設定は `grab_color` / `pause_animation` / `enabled` / `raycaster`。掴むと `grab`、離すと `release` のイベントを出し、掴んでいる間は `grabbed` の状態になる |
@@ -340,6 +374,7 @@ lib/
     ├── scene.rb         … シーンの読み込み待ちとフレームループ
     ├── entity.rb        … A-Frame 要素の薄いラッパー
     ├── component.rb     … Ruby で書く A-Frame の部品
+    ├── timer.rb         … 部品の after / every のタイマー（AFrame::Timer）
     ├── system.rb        … Ruby で書く A-Frame の System
     ├── builder.rb       … AFrame.scene（ブロックで要素を作る）
     ├── camera_lock.rb   … 掴んでいる間の視点固定（camera-lock の System）
