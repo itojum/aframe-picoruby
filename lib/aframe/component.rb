@@ -248,6 +248,13 @@ module AFrame
 
     def remove; end
 
+    # This frame's delta in seconds (delta / 1000.0), for speeds per second
+    # in tick:
+    #   el.position.x += data.speed * delta_seconds
+    def delta_seconds
+      Scene.delta_seconds
+    end
+
     # Calls the block once, seconds from now (in the component's time: it
     # stops while paused). Returns an AFrame::Timer; timer.cancel stops it.
     #   @timer = after(random(3, 11)) { start_crossing }

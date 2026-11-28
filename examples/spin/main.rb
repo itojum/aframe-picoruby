@@ -7,7 +7,7 @@ class SpinBox < AFrame::Component
   schema speed: 30, axis: "y"
 
   def tick(time, delta)
-    el.rotation[data.axis] += deg_to_rad(data.speed * delta / 1000)
+    el.rotation[data.axis] += deg_to_rad(data.speed * delta_seconds)
   end
 end
 
