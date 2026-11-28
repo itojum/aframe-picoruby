@@ -20,7 +20,8 @@ module AFrame
     #   AFrame::Entity.create("a-entity", parent: "#school")
     #
     # Symbols (or Strings) before the attributes attach those components
-    # with their defaults (an empty attribute, as <a-entity swim>):
+    # with their defaults (an empty attribute, as <a-entity swim>). As with
+    # attribute names, a Symbol's _ becomes - and a String is used as it is:
     #   AFrame::Entity.create("a-entity", :swim, :grab_target, gltf_model: "#shark")
     #
     # The element is usable right away; A-Frame finishes loading it (sets

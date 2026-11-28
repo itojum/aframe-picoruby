@@ -94,7 +94,7 @@ group = AFrame::Entity.find("#group")   # 1つだけ探す。見つからなけ�
 - `parent:` には Entity、JS の要素、セレクターの文字列を渡せます。セレクターが見つからなければ例外になり、要素は作りません
 
 - 値は A-Frame の属性の文字列に直して渡します：配列と座標の Hash（`{ x:, y:, z: }`）は `"0 1 0"`、そのほかの Hash は `"property: rotation; to: 0 360 0; ..."`、そのほかは `to_s`
-- コンポーネントを既定値のまま付けるときは、属性より前に Symbol で並べます（HTML の `<a-entity swim grab-target>` と同じ）。名前の `_` は属性名と同じく `-` に直します
+- コンポーネントを既定値のまま付けるときは、属性より前に Symbol で並べます（HTML の `<a-entity swim grab-target>` と同じ）。名前の `_` は属性名と同じく `-` に直します（`:grab_target` → `grab-target`）。文字列で渡すと、属性名と同じく書いたまま使います（`"grab-target"`）
 
   ```ruby
   AFrame::Entity.create("a-entity", :swim, :grab_target, gltf_model: "#whale-shark", scale: 0.5)
