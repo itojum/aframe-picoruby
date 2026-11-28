@@ -116,7 +116,7 @@ module AFrame
     def around(count, radius: 0, axis: :y, face: true, &block)
       raise ArgumentError, "around needs a block" if block.nil?
 
-      axis = axis.to_sym
+      axis = axis.to_sym if axis.is_a?(String)
       raise ArgumentError, "axis is :x, :y or :z, not #{axis.inspect}" unless [:x, :y, :z].include?(axis)
 
       (0...count).map do |i|
