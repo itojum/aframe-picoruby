@@ -46,7 +46,7 @@ AFrame::Scene.run            # フレームループ（戻ってこない）
 | できること | 書き方 |
 |---|---|
 | 図形をマウスや VR コントローラーで掴んで動かす | [`grab-target` / `camera-lock`](docs/reference.md#掴んで動かす) |
-| Ruby から要素を作る | [`AFrame::Entity.create` / `AFrame.scene`](docs/reference.md#要素を作る) |
+| Ruby から要素を作る・部品にまとめる | [`AFrame::Entity.create` / `AFrame.scene` / `AFrame.part`](docs/reference.md#要素を作る) |
 | 位置・回転・大きさを変える（回転は属性が度、`Entity#rotation` がラジアン） | [`position` / `rotation` / `scale`](docs/reference.md#位置回転大きさを変える) |
 | 日本語の文字を出す | [`label`](docs/reference.md#日本語の文字を出す) |
 | 図形の端を回転の中心にする | [`anchor`](docs/reference.md#回転の中心を端にするanchor) |

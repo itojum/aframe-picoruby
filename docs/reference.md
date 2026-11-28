@@ -5,7 +5,7 @@ aframe_picoruby の使い方と API をまとめたページです。はじめ�
 ## 目次
 
 - [掴んで動かす](#掴んで動かす)：`grab-target` と `camera-lock`
-- [要素を作る](#要素を作る)：`Entity.create` と `AFrame.scene`
+- [要素を作る](#要素を作る)：`Entity.create` と `AFrame.scene`、部品を作る `AFrame.part`
 - [位置・回転・大きさを変える](#位置回転大きさを変える)：回転の単位（度とラジアン）、回転の中心を端にする `anchor`
 - [日本語の文字を出す](#日本語の文字を出す)：`label`
 - [イベントを受け取る](#イベントを受け取る)：`on` / `once` / `off`、コンポーネントのクラスに書く `on`
@@ -140,7 +140,45 @@ end
 - 名前が Builder や Ruby に元からあるメソッド（`tag` / `created` / `initialize` / `puts` / `print` / `loop` など）とかぶるタグには、メソッドを作りません。`registerPrimitive("a-loop", ...)` のようなタグは `tag "a-loop", ...` で作ってください（`loop` と書くと Ruby の `loop` が呼ばれます）
 - ブロックを付けると、その要素の子を作れます。各メソッドは作った `Entity` を返し、`AFrame.scene` は一番外側で作った要素の配列を返します
 - `AFrame.scene(parent: "#group") { ... }` で、作る場所を `a-scene` 以外にできます（`Entity.create` の `parent:` と同じ）
-- ブロックは `instance_eval` で動くので、外側のローカル変数は使えますが、外側の `self` のメソッド（トップレベルで定義したメソッドなど）は呼べません
+- ブロックは `instance_eval` で動くので、外側のローカル変数は使えますが、外側の `self` のメソッド（トップレベルで定義したメソッドなど）は呼べません。何度も使う形は、次の `AFrame.part` で部品にします
+
+### 部品を作る（AFrame.part）
+
+`AFrame.part` で、`AFrame.scene` の中で `box` や `sphere` と同じように呼べる部品を作れます（[`examples/scene/`](../examples/scene/)）。
+
+```ruby
+AFrame.part :lamp do |height: 1.2, color: "#FFC65D"|
+  cylinder position: [0, height / 2, 0], height: height, radius: 0.04
+  entity position: [0, height, 0] do
+    sphere radius: 0.12, color: color
+    children                  # 呼び出し側のブロックで作るものが、ここに入る
+  end
+end
+
+AFrame.scene do
+  lamp position: [-2, 0, -3]
+  lamp(position: [2, 0, -3], height: 1.6) { box scale: 0.1, position: [0, 0.2, 0] }
+end
+```
+
+- 部品は `a-entity` を1つ作り、その中で定義のブロックを動かします。ブロックの中は `AFrame.scene` のブロックと同じです。部品は作った `a-entity` の `Entity` を返します
+- 呼び出しのキーワードは、次のように分けます
+  - コンポーネントの名前（`position` / `rotation` / `scale` / `visible` / `animation__sway` / Ruby で作ったコンポーネントなど）と、`id` / `class` / `mixin` は、外側の `a-entity` に付けます
+  - それ以外（上の例の `height` / `color`）は、定義のブロックのキーワード引数に渡します
+  - そのため、`material` のようにコンポーネントと同じ名前は、部品のキーワードに使えません。知らないキーワードを渡すと `ArgumentError` になり、作りかけの要素は残しません
+  - PicoRuby ではブロックのキーワード引数の名前が取れないので、ブロックの引数ではなく、コンポーネントの名前で分けています
+- `children` は、呼び出し側のブロックで作るものを、その場所に作ります。ブロックなしで呼んだときは何も作りません
+- 部品の中から、ほかの部品や自分自身を呼べます。自分を呼ぶと、幹や鎖のように同じ形を積み重ねられます
+
+  ```ruby
+  AFrame.part :trunk do |count: 5, length: 0.5|
+    cylinder position: [0, length / 2, 0], height: length, radius: 0.1
+    entity position: [0, length, 0], rotation: [0, 0, 8] do
+      count > 1 ? trunk(count: count - 1, length: length * 0.9) { children } : children
+    end
+  end
+  ```
+- タグや Builder のメソッド（`box` / `tag` / `children` など）と同じ名前は `ArgumentError` になります。同じ名前の部品は定義し直せます
 
 ## 位置・回転・大きさを変える
 
@@ -457,6 +495,7 @@ end
 | `AFrame::Easing.ease_in_out_sine(t)` など | 補間。`linear` と `ease_in_` / `ease_out_` / `ease_in_out_` × `sine` / `quad` / `cubic`。0〜1 を受け取り 0〜1 を返す |
 | `AFrame.random(min, max)` | min 以上 max 未満の小数。コンポーネント・System の中では `random(min, max)` |
 | `AFrame.scene(parent: nil) { }` | ブロックの中で `box` / `sphere` / `entity` / `tag "a-foo"` などを呼んで要素を作る。一番外側で作った Entity の配列を返す |
+| `AFrame.part(name) { \|keywords\| ... }` | `AFrame.scene` の中で呼べる部品を作る。呼ぶと `a-entity` を作ってブロックを動かす。コンポーネント名と `id` / `class` / `mixin` のキーワードは外側の `a-entity` に、それ以外はブロックに渡す。`children` で呼び出し側のブロックを置く |
 | `AFrame::Entity.create(tag, *components, parent: nil, **attributes)` | 要素を作り（`components` の Symbol は既定値のまま付けるコンポーネント）、`parent`（Entity、JS の要素、セレクターの文字列。省略時は `a-scene`）の子にして、Entity で返す。セレクターが見つからなければ例外 |
 | `Entity#set_attribute(name, value)` / `Entity#set_attribute(name, property, value)` / `Entity#append(child)` | 属性を設定する（コンポーネントに Hash を渡すと、渡したプロパティだけ変えてほかは残す）/ コンポーネントのプロパティを1つだけ変える / 子を付け替える（`appendChild`） |
 | `class X < AFrame::Component` / `register(name = nil, multiple: false)`（名前を省略するとクラス名から） / `schema(hash)` / `on(event) { \|event\| ... }` | Ruby で A-Frame のコンポーネントを定義する。`init` / `update(old_data)` / `tick(time, delta)` / `remove` を上書きし、`el` / `data` / `id` / `delta_seconds` / `random` / `after` / `every` / `deg_to_rad` / `rad_to_deg` を使う |
