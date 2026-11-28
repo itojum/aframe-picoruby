@@ -8,7 +8,10 @@ module AFrame
   #   @timer.cancel
   class Timer
     # seconds until the first call; every seconds after that when repeat.
-    def initialize(seconds, repeat, block)
+    # frame is the frame it was made in (Component.frame), which it does
+    # not take part in.
+    def initialize(seconds, repeat, block, frame = nil)
+      @frame = frame
       @left = seconds.to_f
       @interval = repeat ? seconds.to_f : nil
       @block = block
@@ -34,8 +37,11 @@ module AFrame
     # Moves the timer on by seconds and calls the block when it is due:
     # at most once a frame, so a long frame does not call an every timer
     # many times in a row (the missed calls are skipped).
-    def advance(seconds)
+    # A timer made during frame is left out of it, whichever component
+    # made it, so it never gets time from before it existed.
+    def advance(seconds, frame = nil)
       return if @cancelled
+      return if !frame.nil? && frame == @frame
 
       @left -= seconds
       return if @left > 0
