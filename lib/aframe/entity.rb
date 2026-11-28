@@ -165,6 +165,40 @@ module AFrame
       self
     end
 
+    # Listens for event (a Symbol or a String, used as it is:
+    # :grab, "model-loaded") and returns a value to pass to off. The block
+    # may take the event or nothing:
+    #   listener = shark.on(:grab) { hint.set_attribute(:label, :value, "つかんだ！") }
+    #   shark.on(:release) { |event| p event[:detail][:cursorEl] }
+    #   shark.off(listener)
+    # The block runs after the event has been dispatched (it cannot call
+    # preventDefault); use js.addEventListener(name, sync: true) for that.
+    def on(event, &block)
+      raise ArgumentError, "on needs a block" if block.nil?
+
+      @js.addEventListener(event.to_s, &block)
+    end
+
+    # Like on, but stops listening after the first event. The returned
+    # value can be passed to off before then.
+    def once(event, &block)
+      raise ArgumentError, "once needs a block" if block.nil?
+
+      listener = nil
+      listener = @js.addEventListener(event.to_s) do |e|
+        JS::Object.removeEventListener(listener)
+        block.call(e)
+      end
+      listener
+    end
+
+    # Stops the listener that on or once returned. Other listeners for the
+    # same event, on this element or elsewhere, keep listening.
+    def off(listener)
+      JS::Object.removeEventListener(listener) unless listener.nil?
+      nil
+    end
+
     # Moves child (an Entity or a JS element) under this entity.
     def append(child)
       @js.appendChild(child.is_a?(Entity) ? child.js : child)
