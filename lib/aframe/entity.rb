@@ -176,7 +176,8 @@ module AFrame
     # Any Hash for a waiting component goes that way too: written as a
     # string it would replace what an earlier write set, while a JS object
     # written after registration changes only its own properties (as it
-    # does for a registered component).
+    # does for a registered component). Strings for a waiting component
+    # wait as well, so the writes keep their order.
     #
     # scale: 0.5 sets all three axes, and component: true attaches a
     # component with several properties with its defaults (see shorthand).
@@ -200,6 +201,11 @@ module AFrame
         # The bridge's setAttribute takes two strings only, so go through JS.
         Entity.install_setters
         JS.global.__aframe_setProperties(@js, name, JS::Bridge.to_js(properties), waiting)
+      elsif waiting
+        # Every write to a waiting component waits, so they all land in the
+        # order they were made.
+        Entity.install_setters
+        JS.global.__aframe_setProperties(@js, name, Entity.attribute_value(value), true)
       else
         @js.setAttribute(name, Entity.attribute_value(value))
       end
