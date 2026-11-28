@@ -97,6 +97,7 @@ module AFrame
           instance.playing = false
           registry.delete(id)
           safely(instance, :remove)
+          instance.cancel_timers
         end
         nil
       end
@@ -134,10 +135,17 @@ module AFrame
         Component.instance_variable_get(:@installed) ? true : false
       end
 
-      # Calls tick on every playing instance (from Scene, once a frame).
+      # Moves the timers on and calls tick on every playing instance (from
+      # Scene, once a frame). Timers go first, so what they change shows in
+      # the same frame's tick.
       def tick_all(time, delta)
+        seconds = delta / 1000.0
         # A copy, as a tick may remove an element (and its instance).
         registry.values.each do |instance|
+          next unless instance.playing
+
+          instance.advance_timers(seconds)
+          # A timer may have removed the element.
           next unless instance.playing && instance.respond_to?(:tick)
 
           safely(instance, :tick, time, delta)
@@ -233,12 +241,61 @@ module AFrame
 
     def remove; end
 
+    # Calls the block once, seconds from now (in the component's time: it
+    # stops while paused). Returns an AFrame::Timer; timer.cancel stops it.
+    #   @timer = after(random(3, 11)) { start_crossing }
+    def after(seconds, &block)
+      add_timer(seconds, false, block)
+    end
+
+    # Calls the block every seconds (the first time seconds from now), at
+    # most once a frame, until cancelled or the component is removed.
+    #   every(1) { blink }
+    def every(seconds, &block)
+      raise ArgumentError, "every needs a time above 0" unless seconds > 0
+
+      add_timer(seconds, true, block)
+    end
+
+    # Called by tick_all: moves this component's timers on.
+    def advance_timers(seconds)
+      return if @timers.nil? || @timers.empty?
+
+      # A copy, as a block may add or cancel timers.
+      @timers.dup.each do |timer|
+        begin
+          timer.advance(seconds)
+        rescue => e
+          puts "AFrame::Component #{self.class.component_name} timer error: #{e.message}"
+        end
+      end
+      @timers = @timers.select { |timer| timer.active? }
+    end
+
+    # Cancels every timer (called when the component is removed).
+    def cancel_timers
+      return if @timers.nil?
+
+      @timers.each { |timer| timer.cancel }
+      @timers = []
+    end
+
     def deg_to_rad(degrees)
       degrees * Math::PI / 180
     end
 
     def rad_to_deg(radians)
       radians * 180 / Math::PI
+    end
+
+    private
+
+    def add_timer(seconds, repeat, block)
+      raise ArgumentError, "a timer needs a block" if block.nil?
+
+      timer = Timer.new(seconds, repeat, block)
+      (@timers ||= []) << timer
+      timer
     end
   end
 end
