@@ -24,6 +24,12 @@ module AFrame
         block
       end
 
+      # The current frame's delta in seconds (0.0 before the first frame).
+      # Component#delta_seconds and System#delta_seconds read this.
+      def delta_seconds
+        @delta_seconds || 0.0
+      end
+
       # Starts calling the on_tick handlers and returns. Safe to call more
       # than once.
       def start
@@ -73,6 +79,7 @@ module AFrame
       # ticks (the order A-Frame uses), then the on_tick handlers.
       # A handler that raises is reported and does not stop the others.
       def tick(time, delta)
+        @delta_seconds = delta / 1000.0
         Component.tick_all(time, delta) if Component.installed?
         System.tick_all(time, delta) if System.installed?
         tick_handlers.each do |handler|
