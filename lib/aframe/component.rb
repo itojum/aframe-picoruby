@@ -296,8 +296,11 @@ module AFrame
       @timers = @timers.select { |timer| timer.active? }
     end
 
-    # Cancels every timer (called when the component is removed).
+    # Cancels every timer (called when the component is removed). Timers
+    # made after that come back already cancelled, so nothing is kept for
+    # a component that will never tick again.
     def cancel_timers
+      @removed = true
       return if @timers.nil?
 
       @timers.each { |timer| timer.cancel }
@@ -318,7 +321,11 @@ module AFrame
       raise ArgumentError, "a timer needs a block" if block.nil?
 
       timer = Timer.new(seconds, repeat, block, Component.frame)
-      (@timers ||= []) << timer
+      if @removed
+        timer.cancel
+      else
+        (@timers ||= []) << timer
+      end
       timer
     end
   end
