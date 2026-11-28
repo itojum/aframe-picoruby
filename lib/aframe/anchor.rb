@@ -86,8 +86,12 @@ module AFrame
       apply
     end
 
+    # Puts the mesh back and forgets it, so an anchor added later starts
+    # from where the mesh is then.
     def remove
       JS.global.__aframe_anchor(el.js, "center")
+      el.js[:__aframe_anchorMesh] = nil
+      el.js[:__aframe_anchorBase] = nil
     end
 
     # The on handlers miss what changed while paused, so work it out again
