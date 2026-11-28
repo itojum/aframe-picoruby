@@ -20,19 +20,20 @@ module AFrame
   # The A-Frame name for a class: the part after the last :: in
   # kebab-case, a run of capitals kept together (SpinBox => "spin-box",
   # CameraLock => "camera-lock", XRHand => "xr-hand", AFrame::Label =>
-  # "label"). PicoRuby has no Class#name, so this reads to_s.
+  # "label", XR2Hand => "xr2-hand"). PicoRuby has no Class#name, so this reads to_s.
   def self.default_name(klass)
     full = klass.to_s
     raise ArgumentError, "register needs a name for an anonymous class" if full.start_with?("#")
 
     base = full.split("::").last
     upper = ->(c) { !c.nil? && c >= "A" && c <= "Z" }
-    lower_or_digit = ->(c) { !c.nil? && ((c >= "a" && c <= "z") || (c >= "0" && c <= "9")) }
+    lower = ->(c) { !c.nil? && c >= "a" && c <= "z" }
+    lower_or_digit = ->(c) { lower.call(c) || (!c.nil? && c >= "0" && c <= "9") }
     name = ""
     base.length.times do |i|
       c = base[i]
       if upper.call(c) && i > 0 &&
-         (lower_or_digit.call(base[i - 1]) || (upper.call(base[i - 1]) && lower_or_digit.call(base[i + 1])))
+         (lower_or_digit.call(base[i - 1]) || (upper.call(base[i - 1]) && lower.call(base[i + 1])))
         name << "-"
       end
       name << c.downcase
