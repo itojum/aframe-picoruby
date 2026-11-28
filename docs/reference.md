@@ -6,6 +6,7 @@ aframe_picoruby の使い方と API をまとめたページです。はじめ�
 
 - [掴んで動かす](#掴んで動かす)：`grab-target` と `camera-lock`
 - [要素を作る](#要素を作る)：`Entity.create` と `AFrame.scene`
+- [位置・回転・大きさを変える](#位置回転大きさを変える)：回転の単位（度とラジアン）
 - [日本語の文字を出す](#日本語の文字を出す)：`label`
 - [イベントを受け取る](#イベントを受け取る)：`on` / `once` / `off`
 - [A-Frame のプロパティを触る](#a-frame-のプロパティを触る)：`method_missing`
@@ -123,6 +124,38 @@ end
 - ブロックを付けると、その要素の子を作れます。各メソッドは作った `Entity` を返し、`AFrame.scene` は一番外側で作った要素の配列を返します
 - `AFrame.scene(parent: "#group") { ... }` で、作る場所を `a-scene` 以外にできます（`Entity.create` の `parent:` と同じ）
 - ブロックは `instance_eval` で動くので、外側のローカル変数は使えますが、外側の `self` のメソッド（トップレベルで定義したメソッドなど）は呼べません
+
+## 位置・回転・大きさを変える
+
+位置・回転・大きさは、属性で書く方法と、`Entity#position` / `#rotation` / `#scale` で `object3D` を直接書き換える方法があります。**回転だけは、この2つで単位が違います。**
+
+| 書き方 | 回転の単位 | 例（Y 軸で 90 度） |
+|---|---|---|
+| 属性（HTML、`Entity.create`、`set_attribute`） | 度 | `rotation: [0, 90, 0]` |
+| `Entity#rotation`（THREE.Euler） | ラジアン | `el.rotation.y = Math::PI / 2` |
+
+```ruby
+box = AFrame::Entity.create("a-box", rotation: [0, 90, 0])   # 度
+
+# コンポーネントや System の中では deg_to_rad / rad_to_deg が使えます
+class Turn < AFrame::Component
+  register "turn"
+
+  def tick(time, delta)
+    el.rotation.y += deg_to_rad(90 * delta_seconds)          # 1秒に 90 度
+  end
+end
+
+AFrame::Entity.create("a-box", position: [1, 1, -3], turn: true)   # turn を付けた箱が回る
+
+# コンポーネントの外では、度に Math::PI / 180 を掛けます
+box.on(:click) { box.rotation.y += 45 * Math::PI / 180 }    # クリックするたびに 45 度
+```
+
+- `el.rotation.y = 90` と書くと、90 ラジアン（約 5157 度）回ります。度で考えるときは `deg_to_rad` を通してください
+- 位置（m）と大きさ（倍率）は、どちらの書き方でも単位は同じです
+- `Entity.create` した直後は、A-Frame がまだ要素を読み込んでいないので、`Entity#rotation` などに書いても、読み込みのときに属性の値で上書きされます。作った直後に向きを決めるときは、属性（`rotation: [0, 45, 0]`）で渡してください
+- どちらで書き換えても、もう一方にも反映されます（`object3D` を書き換えたあとに `getAttribute("rotation")` を読むと度で返ります）。毎フレーム動かすときは、属性の文字列を作らずに済む `Entity#rotation` などのほうが軽いです
 
 ## 日本語の文字を出す
 
@@ -307,7 +340,7 @@ end
 | `AFrame::Scene.run` | A-Frame の描画ループに合わせて `on_tick` の処理を呼び続ける（戻ってこない）。VR 中も止まらない。シーンを `pause` している間は呼ばれない |
 | `AFrame::Scene.start` | `run` と同じく `on_tick` の処理を呼び始めるが、すぐに戻ってくる |
 | `AFrame::Entity.all(selector)` / `Entity.new(js)` | A-Frame 要素の薄いラッパー。`color` / `color=` / `position` / `rotation` / `scale` / `visible` / `visible=` / `set_position(x, y, z)` / `pause_animation` / `play_animation` / `js`。ほかのメソッドは JS の要素に渡す（`box.object3D.castShadow`） |
-| `Entity#position` / `#rotation` / `#scale` | `object3D` の `position`（THREE.Vector3）/ `rotation`（THREE.Euler、ラジアン）/ `scale`（THREE.Vector3）をそのまま返す。書き換えると要素が動く（`el.position.x = 1`、`el.rotation.y += 0.1`）。`set_position(x, y, z)` は `position.set(x, y, z)` と同じ |
+| `Entity#position` / `#rotation` / `#scale` | `object3D` の `position`（THREE.Vector3）/ `rotation`（THREE.Euler、**ラジアン**。属性の `rotation` は度）/ `scale`（THREE.Vector3）をそのまま返す。書き換えると要素が動く（`el.position.x = 1`、`el.rotation.y += 0.1`）。`set_position(x, y, z)` は `position.set(x, y, z)` と同じ |
 | `Entity#visible` / `#visible=` | `object3D.visible` を読み書きする（`el.visible = false` で隠す）。`visible` 属性は書き換えないので、HTML に書いた値はそのまま。毎フレーム切り替えても軽い |
 | `AFrame::Entity.find(selector)` | 最初に見つかった要素を Entity で返す。見つからなければ `nil`（`querySelector` と同じ） |
 | `Entity#on(event) { }` / `#once(event) { }` / `#off(listener)` | イベントを受け取る。`on` / `once` は `off` に渡す値を返す。`off` はその処理だけやめる。ブロックの引数（イベント）は省略してよい |
