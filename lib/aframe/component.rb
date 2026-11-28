@@ -17,6 +17,29 @@ module AFrame
   # called from the frame loop for every playing instance, so there is one
   # call from JS to Ruby per frame however many instances there are.
   # Hooks run inside A-Frame, so they must not await.
+  # The A-Frame name for a class: the part after the last :: in
+  # kebab-case, a run of capitals kept together (SpinBox => "spin-box",
+  # CameraLock => "camera-lock", XRHand => "xr-hand", AFrame::Label =>
+  # "label"). PicoRuby has no Class#name, so this reads to_s.
+  def self.default_name(klass)
+    full = klass.to_s
+    raise ArgumentError, "register needs a name for an anonymous class" if full.start_with?("#")
+
+    base = full.split("::").last
+    upper = ->(c) { !c.nil? && c >= "A" && c <= "Z" }
+    lower_or_digit = ->(c) { !c.nil? && ((c >= "a" && c <= "z") || (c >= "0" && c <= "9")) }
+    name = ""
+    base.length.times do |i|
+      c = base[i]
+      if upper.call(c) && i > 0 &&
+         (lower_or_digit.call(base[i - 1]) || (upper.call(base[i - 1]) && lower_or_digit.call(base[i + 1])))
+        name << "-"
+      end
+      name << c.downcase
+    end
+    name
+  end
+
   class Component
     class << self
       # Registers the component under name. The JS side is registered in a
@@ -24,7 +47,11 @@ module AFrame
       # register) and picks up elements that already have the attribute.
       # multiple: true lets one element have several instances, each under
       # name__id (spin__fast, spin__slow), as A-Frame's multiple does.
-      def register(name, multiple: false)
+      #
+      # Without a name, the class name is used in kebab-case (the part after
+      # the last ::): SpinBox => "spin-box", XRHand => "xr-hand".
+      def register(name = nil, multiple: false)
+        name = AFrame.default_name(self) if name.nil?
         raise "#{self} is already registered as #{@component_name}" if @component_name
         raise "#{name} is already registered" if Component.classes.key?(name)
         if JS.eval("AFRAME.components[#{name.inspect}] ? true : false")

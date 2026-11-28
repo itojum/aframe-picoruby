@@ -24,7 +24,10 @@ module AFrame
       # Registers the system under name. The JS side is registered in a
       # microtask, so schema can come before or after register; A-Frame
       # creates it for scenes that already exist.
-      def register(name)
+      # Without a name, the class name is used (Garden => "garden"; see
+      # AFrame.default_name).
+      def register(name = nil)
+        name = AFrame.default_name(self) if name.nil?
         raise "#{self} is already registered as #{@system_name}" if @system_name
         raise "#{name} is already registered" if System.classes.key?(name)
         # picoruby-frame is the frame loop's own system (Scene.start).
